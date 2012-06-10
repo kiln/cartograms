@@ -73,12 +73,15 @@ def get_local_densities():
       order by y, x
     """, (dataset_name, map_id, division_id))
     
-    a = [ [None for i in range(X)] for j in range(Y) ]
+    a = [ [None for i in range(X+1)] for j in range(Y+1) ]
     for r in c.fetchall():
       y, x, v, region_id = r
       # if region_id is not None and v is None:
       #   v = 1e-5 / multiplier
-      a[y][x] = v
+      try:
+        a[y][x] = v
+      except IndexError:
+        raise Exception("Grid point (%d,%d) is out of range (%d,%d)" % (x,y,X,Y))
     
     return a
     
