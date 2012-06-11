@@ -4,11 +4,12 @@ insert into map (
   name, srid,
   x_min, y_min,  x_max, y_max,
   width, height
-) values (
-  currval('division_id_seq'),
+) (
+  select division.id,
   'os-britain-counties', 27700,
-  5500, -1000000, 5500 + 800000, -1000000 + 1035000,
-  541, 700
+  5500, 5000, 705500, 1305000,
+  700, 1300
+  from division where name = 'gb-counties'
 );
 
 select populate_grid('os-britain-counties');
