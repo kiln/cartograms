@@ -19,7 +19,13 @@ class AsJSON(object):
   def __init__(self, options, carts):
     self.options = options
     self.carts = carts
-    self.db = psycopg2.connect("host=localhost")
+    
+    db_connection_string = "host=" + options.db_host
+    if options.db_name:
+        db_connection_string += " dbname=" + options.db_name
+    if options.db_user:
+        db_connection_string += " user=" + options.db_user
+    self.db = psycopg2.connect(db_connection_string)
     self.m = utils.Map(self.db, options.map)
     
     if options.output:
@@ -285,6 +291,17 @@ def main():
                     action="store",
                     default="data",
                     help="name of variable to use for the path data (default %default)")
+
+  parser.add_option("", "--db-host",
+                    action="store",
+                    default="localhost",
+                    help="database hostname (default %default)")
+  parser.add_option("", "--db-name",
+                    action="store",
+                    help="database name")
+  parser.add_option("", "--db-user",
+                    action="store",
+                    help="database username")
   
   parser.add_option("", "--include-segments",
                     action="store_true",
