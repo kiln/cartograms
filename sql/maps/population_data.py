@@ -33,3 +33,5 @@ for county, parts in english_counties.items() + welsh_counties.items():
 
 for code, name in scottish_council_regions.items():
     w.writerow([name, population_by_region[code]])
+
+w.writerow(["Greater London", population_by_region["E12000007"]])
