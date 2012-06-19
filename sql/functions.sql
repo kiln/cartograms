@@ -54,3 +54,35 @@ create or replace function grid_set_regions(
     end loop;
   end;
 $$ language 'plpgsql';
+
+
+create or replace function compute_breakpoints(
+  division_name varchar
+) returns void as $$
+  declare
+    target_division_id integer;
+  begin
+    select into target_division_id id from division where name = division_name;
+    
+    update region
+      set breakpoints = (
+        select ST_Union(
+          CASE GeometryType(x.border)
+            WHEN 'POINT' THEN
+              x.border
+            WHEN 'LINESTRING' THEN
+              ST_Boundary(x.border)
+            WHEN 'MULTILINESTRING' THEN
+              ST_Boundary(ST_LineMerge(x.border))
+          END
+        )
+        from (
+          select ST_Intersection(ST_Boundary(region.the_geom), ST_Boundary(neighbour.the_geom)) border
+          from region neighbour
+          where ST_Touches(region.the_geom, neighbour.the_geom)
+          and neighbour.division_id = target_division_id
+        ) x
+      )
+    where division_id = target_division_id;
+  end;
+$$ language 'plpgsql';

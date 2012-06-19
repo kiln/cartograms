@@ -15,6 +15,7 @@ CREATE TABLE region (
 SELECT AddGeometryColumn('','region','the_geom','4326','MULTIPOLYGON',2);
 CREATE INDEX "region_geom" on region using gist(the_geom);
 ALTER TABLE region add constraint "region_area_ck" CHECK (area = ST_Area(the_geom));
+SELECT AddGeometryColumn('','region','breakpoints','4326','MULTIPOINT',2);
 
 create table map (
   id   serial primary key,

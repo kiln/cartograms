@@ -11,6 +11,7 @@ insert into division (name) values ('us-states');
 insert into region (division_id, name, the_geom, area) (
     select currval('division_id_seq'), state_name, the_geom, ST_Area(the_geom) from usa_state_shapefile
 );
+select compute_breakpoints('us-states');
 
 -- robin=# select ST_Extent(ST_Transform(the_geom, 9102003)) from usa_state_shapefile where state_name not in ('Alaska', 'Hawaii');
 --  BOX(-2354935.75 -1294963.875,2256319.25 1558806.125)

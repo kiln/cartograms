@@ -474,6 +474,7 @@ insert into region (division_id, name, the_geom, area) (
        , division
     where division.name = 'gb-counties'
 );
+select compute_breakpoints('gb-counties');
 
 insert into map (
   division_id,

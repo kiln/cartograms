@@ -35,6 +35,8 @@ set name = 'E12000007'
 where name = '999999'
 and division_id = (select id from division where name = 'utas');
 
+select compute_breakpoints('utas');
+
 select grid_set_regions('os-britain', 'utas');
 
 
@@ -58,5 +60,6 @@ insert into region (division_id, name, the_geom, area) (
     from unitary_region
 );
 
-select populate_grid('os-britain-districts')
+select compute_breakpoints('districts')
+     , populate_grid('os-britain-districts')
      , grid_set_regions('os-britain-districts', 'districts');

@@ -80,31 +80,12 @@ class AsJSON(object):
     try:
       c.execute("""
         select ST_AsEWKB(
-                ST_Transform(
-                  ST_Union(
-                    CASE GeometryType(x.border)
-                      WHEN 'POINT' THEN
-                        x.border
-                      WHEN 'LINESTRING' THEN
-                        ST_Boundary(x.border)
-                      WHEN 'MULTILINESTRING' THEN
-                        ST_Boundary(ST_LineMerge(x.border))
-                    END
-                  ),
-                  %(srid)s
-                )
+                ST_Transform(breakpoints, %(srid)s)
               ) breakpoints
-        from (
-          select ST_Intersection(ST_Boundary(target.the_geom), ST_Boundary(neighbour.the_geom)) border
-          from region target
-             , region neighbour
-          where target.id = %(region_id)s
-          and ST_Touches(target.the_geom, neighbour.the_geom)
-          and neighbour.division_id = %(division_id)s
-        ) x
+        from region
+        where id = %(region_id)s
       """, {
         "srid": self.m.srid,
-        "division_id": self.m.division_id,
         "region_id": region_id,
       })
       
