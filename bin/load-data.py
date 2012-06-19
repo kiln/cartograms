@@ -2,8 +2,31 @@
 # -*- encoding: utf-8 -*-
 
 import csv
-import sys
+import optparse
 import psycopg2
+import sys
+
+parser = optparse.OptionParser(usage="%prog [options] dataset csv division region-column value-column")
+parser.add_option("", "--db-host",
+                action="store",
+                default="localhost",
+                help="database hostname (default %default)")
+parser.add_option("", "--db-name",
+                action="store",
+                help="database name")
+parser.add_option("", "--db-user",
+                action="store",
+                help="database username")
+
+(options, args) = parser.parse_args()
+dataset_name, csv_filename, division_name, region_col, value_col = args
+
+db_connection_string = "host=" + options.db_host
+if options.db_name:
+    db_connection_string += " dbname=" + options.db_name
+if options.db_user:
+    db_connection_string += " user=" + options.db_user
+db = psycopg2.connect(db_connection_string)
 
 
 def each(filename):
@@ -16,7 +39,6 @@ def each(filename):
     
     f.close()
 
-db = psycopg2.connect("host=localhost")
 class Col(str):
   """A column name, as opposed to a constant string.
   """
@@ -25,8 +47,6 @@ def as_seq(gen, *cols):
         yield tuple((
             d[col] if isinstance(col, Col) else col for col in cols
         ))
-
-dataset_name, csv_filename, division_name, region_col, value_col = sys.argv[1:]
 
 c = db.cursor()
 c.execute("""

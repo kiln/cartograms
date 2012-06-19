@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
 
+import optparse
 import sys
 import psycopg2
 
@@ -8,14 +9,54 @@ import psycopg2
 Generate a density grid that can be fed to cart.
 """
 
-db = psycopg2.connect("host=localhost")
+parser = optparse.OptionParser()
+parser.add_option("", "--dataset",
+                action="store",
+                help="the name of the dataset to use")
+parser.add_option("", "--map",
+                action="store",
+                help="the name of the map to use")
 
-dataset_name = sys.argv[1]
-map_name = sys.argv[2]
-if len(sys.argv) > 3:
-  multiplier = int(sys.argv[3])
+parser.add_option("", "--multiplier",
+                action="store", default=1,
+                help="the density multiplier (default %default)")
+
+parser.add_option("", "--db-host",
+                action="store",
+                default="localhost",
+                help="database hostname (default %default)")
+parser.add_option("", "--db-name",
+                action="store",
+                help="database name")
+parser.add_option("", "--db-user",
+                action="store",
+                help="database username")
+
+(options, args) = parser.parse_args()
+
+if len(args) in (2,3) and not options.map and not options.dataset:
+    # Legacy syntax
+    dataset_name = args[0]
+    map_name = args[1]
+    multiplier = args[2] if len(args) == 3 else 1
 else:
-  multiplier = 1
+    if not options.map:
+        parser.error("Missing option --map")
+    if not options.dataset:
+        parser.error("Missing option --dataset")
+    if args:
+        parser.error("Unexpected non-option arguments")
+    
+    dataset_name = options.dataset
+    map_name = options.map
+    multiplier = options.multiplier
+
+db_connection_string = "host=" + options.db_host
+if options.db_name:
+    db_connection_string += " dbname=" + options.db_name
+if options.db_user:
+    db_connection_string += " user=" + options.db_user
+db = psycopg2.connect(db_connection_string)
 
 c = db.cursor()
 c.execute("""
