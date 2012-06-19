@@ -1,6 +1,6 @@
 
 import math
-from numpy import array
+import numpy
 import re
 
 class Map(object):
@@ -27,23 +27,7 @@ class Interpolator(object):
   """
   def __init__(self, grid_filename, the_map):
     self.m = the_map
-    
-    self.a = array([ [ (-999,-999) for y in range(3*self.m.height+1) ] for x in range(3*self.m.width+1) ])
-    grid_f = open(grid_filename, "r")
-    
-    line_number = 0
-    for y in range(3*self.m.height+1):
-      for x in range(3*self.m.width+1):
-        line_number += 1
-        line = grid_f.readline()
-        if line is None:
-          raise Exception("File ended unexpectedly")
-        mo = re.match(r"^(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)$", line)
-        if not mo:
-          raise Exception("Failed to parse line %d of %s: %s" % (line_number, grid_filename, line))
-        self.a[x][y] = float(mo.group(1)), float(mo.group(2))
-    
-    grid_f.close()
+    self.a = numpy.fromfile(grid_filename, sep=' ').reshape(3*self.m.width+1, 3*self.m.height+1, 2)
 
   def __call__(self, rx, ry, slide=1.0):
     x = (rx - self.m.x_min) * self.m.width  / (self.m.x_max - self.m.x_min) + self.m.width
