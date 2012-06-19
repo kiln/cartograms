@@ -1,18 +1,4 @@
 insert into division (name) values ('gb-counties');
-insert into map (
-  division_id,
-  name, srid,
-  x_min, y_min,  x_max, y_max,
-  width, height
-) (
-  select division.id,
-  'os-britain-counties', 27700,
-  5500, 5000, 705500, 1305000,
-  700, 1300
-  from division where name = 'gb-counties'
-);
-
-select populate_grid('os-britain-counties');
 
 insert into region (division_id, name, the_geom, area) (
     select currval('division_id_seq'), code, ST_Transform(the_geom, 4326), ST_Area(ST_Transform(the_geom, 4326))
@@ -482,7 +468,6 @@ insert into gb_county (name, the_geom) (select name, the_geom from unitary_regio
 
 -- end output --
 
-
 insert into region (division_id, name, the_geom, area) (
     select division.id, gb_county.name, ST_Transform(gb_county.the_geom, 4326), ST_Area(ST_Transform(gb_county.the_geom, 4326))
     from gb_county
@@ -490,4 +475,39 @@ insert into region (division_id, name, the_geom, area) (
     where division.name = 'gb-counties'
 );
 
+insert into map (
+  division_id,
+  name, srid,
+  x_min, y_min,  x_max, y_max,
+  width, height
+) (
+  select division.id,
+  'os-britain-counties', 27700,
+  5500, 5000, 705500, 1305000,
+  700, 1300
+  from division where name = 'gb-counties'
+);
+select populate_grid('os-britain-counties');
 select grid_set_regions('os-britain-counties', 'gb-counties');
+
+insert into map (
+  division_id,
+  name, srid,
+  x_min, y_min,  x_max, y_max,
+  width, height
+) (
+  select division.id,
+  'os-britain-counties-coarse', 27700,
+  5500, 5000, 705500, 1305000,
+  350, 650
+  from division where name = 'gb-counties'
+);
+-- select populate_grid('os-britain-counties-coarse');
+-- select grid_set_regions('os-britain-counties-coarse', 'gb-counties');
+insert into grid ( map_id, division_id, x, y, pt_4326, region_id ) (
+    select coarse_map.id, grid.division_id, grid.x/2, grid.y/2, grid.pt_4326, grid.region_id
+    from grid, map coarse_map
+    where map_id = (select id from map where name = 'os-britain-counties')
+    and x%2 = 0 and y%2 = 0
+    and coarse_map.name = 'os-britain-counties-coarse'
+);
