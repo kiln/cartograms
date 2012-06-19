@@ -1,5 +1,6 @@
 
 import math
+from numpy import array
 import re
 
 class Map(object):
@@ -27,7 +28,7 @@ class Interpolator(object):
   def __init__(self, grid_filename, the_map):
     self.m = the_map
     
-    self.a = [ [ None for y in range(3*self.m.height+1) ] for x in range(3*self.m.width+1) ]
+    self.a = array([ [ (-999,-999) for y in range(3*self.m.height+1) ] for x in range(3*self.m.width+1) ])
     grid_f = open(grid_filename, "r")
     
     line_number = 0
