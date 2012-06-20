@@ -51,7 +51,7 @@ class AsJSON(object):
     for cart in self.carts:
       cart_name = self._extract_cart_name(cart)
       print >>sys.stderr, "Loading cartogram grid for {cart_name}...".format(cart_name=cart_name)
-      self.interpolators[cart_name] = utils.Interpolator(cart, self.m)
+      self.interpolators[cart_name] = utils.FastInterpolator(cart, self.m)
   
   def region_paths(self):
     c = self.db.cursor()
@@ -184,7 +184,7 @@ class AsJSON(object):
       return 1
     
     max_stretch = max([
-      self._segment_length([ interpolator(x, y) for (x, y) in segment ])
+      self._segment_length(interpolator.map(segment))
       for interpolator in self.interpolators.values() if interpolator
     ])
     
@@ -211,9 +211,8 @@ class AsJSON(object):
     for k, path_arr in path_arrs.items():
       path_arr.append("M")
       first = True
-      for x, y in coords:
-        if self.interpolators.get(k):
-          x, y = self.interpolators[k](x, y)
+      interpolator = self.interpolators.get(k)
+      for x, y in interpolator.map(coords) if interpolator else coords:
         x, y = self._transform(x, y)
         path_arr.append("%.0f" % x)
         path_arr.append("%.0f" % y)
