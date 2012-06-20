@@ -27,7 +27,7 @@ class Interpolator(object):
   """
   def __init__(self, grid_filename, the_map):
     self.m = the_map
-    self.a = numpy.fromfile(grid_filename, sep=' ').reshape(3*self.m.width+1, 3*self.m.height+1, 2)
+    self.a = numpy.fromfile(grid_filename, sep=' ').reshape(3*self.m.height+1, 3*self.m.width+1, 2)
 
   def __call__(self, rx, ry, slide=1.0):
     x = (rx - self.m.x_min) * self.m.width  / (self.m.x_max - self.m.x_min) + self.m.width
@@ -38,15 +38,10 @@ class Interpolator(object):
     ix, iy = int(x), int(y)
     dx, dy = x - ix, y - iy
     
-    tx = (1-dx)*(1-dy)*self.a[ix][iy][0] \
-       + dx*(1-dy)*self.a[ix+1][iy][0]   \
-       + (1-dx)*dy*self.a[ix][iy+1][0]   \
-       + dx*dy*self.a[ix+1][iy+1][0]
-      
-    ty = (1-dx)*(1-dy)*self.a[ix][iy][1] \
-       + dx*(1-dy)*self.a[ix+1][iy][1] \
-       + (1-dx)*dy*self.a[ix][iy+1][1] \
-       + dx*dy*self.a[ix+1][iy+1][1]
+    tx, ty = (1-dx)*(1-dy)*self.a[iy][ix] \
+           + dx*(1-dy)*self.a[iy][ix+1]   \
+           + (1-dx)*dy*self.a[iy+1][ix]   \
+           + dx*dy*self.a[iy+1][ix+1]
     
     ix, iy = (
       (tx - self.m.width)  * (self.m.x_max - self.m.x_min) / self.m.width  + self.m.x_min,
