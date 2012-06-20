@@ -17,6 +17,12 @@ parser.add_option("", "--map",
                 action="store",
                 help="the name of the map to use")
 
+parser.add_option("", "--zero",
+                action="store", type="float", default=0.1,
+                help="Value to use for regions with zero data values (default %default)")
+parser.add_option("", "--missing",
+                action="store", type="float", default=None,
+                help="Value to use for regions with missing data (default %default)")
 parser.add_option("", "--multiplier",
                 action="store", default=1,
                 help="the density multiplier (default %default)")
@@ -102,23 +108,25 @@ def get_local_densities():
       select y, x, data_value.value / region.area density
          , grid.region_id
       from grid
+      join region on grid.region_id = region.id
       left join (
          select region_id, value
          from data_value
          join dataset on data_value.dataset_id = dataset.id
          where dataset.name = %s
       ) data_value using (region_id)
-      left join region on data_value.region_id = region.id
       where grid.map_id = %s
-      and region.division_id = %s
+      and grid.division_id = %s
       order by y, x
     """, (dataset_name, map_id, division_id))
     
     a = [ [None for i in range(X+1)] for j in range(Y+1) ]
     for r in c.fetchall():
       y, x, v, region_id = r
-      # if region_id is not None and v is None:
-      #   v = 1e-5 / multiplier
+      if v == 0 and options.zero:
+        v = options.zero / multiplier
+      if v is None and options.missing:
+        v = options.missing / multiplier
       try:
         a[y][x] = v
       except IndexError:
