@@ -3,7 +3,6 @@ import math
 import re
 
 import numpy
-import scipy.interpolate
 
 class Map(object):
   def __init__(self, db, map_name):
@@ -64,6 +63,7 @@ class FastInterpolator(object):
   """Faster linear interpolation, using scipy.interpolate.
   """
   def __init__(self, grid_filename, m):
+    import scipy.interpolate
     grid = numpy.fromfile(grid_filename, sep=' ').reshape(3*m.height+1, 3*m.width+1, 2)
     
     x_pts = (numpy.arange(3*m.width+1) - m.width) * (m.x_max - m.x_min) / m.width  + m.x_min
@@ -79,6 +79,7 @@ class FastInterpolator(object):
     return self.x(ry, rx), self.y(ry, rx)
   
   def map(self, coords):
+    # map is much faster than calling __call__ repeatedly.
     c = numpy.array(coords)
     ys, xs = c[:,1], c[:,0]
     return zip(self.x.ev(ys, xs), self.y.ev(ys, xs))
