@@ -1,4 +1,4 @@
-# This is used merely to generate some of the SQL in gb-counties.sq
+# This is used merely to generate some of the SQL in gb-counties.sql
 
 import re
 
