@@ -74,19 +74,6 @@ c.execute("""
 map_id, division_id, srid, X, Y = c.fetchone()
 c.close()
 
-def region_at_position(x, y):
-  c = db.cursor()
-  try:
-    c.execute("""
-      select id from region
-      where ST_Contains(the_geom, ST_Transform(ST_SetSRID(ST_MakePoint(%s, -%s), %s), 4326))
-      and region.division_id = %s
-    """, (x, y, srid, division_id))
-    r = c.fetchone()
-    return r[0] if r else None
-  finally:
-    c.close()
-
 def get_global_density():
     c = db.cursor()
     try:
