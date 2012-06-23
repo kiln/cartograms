@@ -26,6 +26,9 @@ parser.add_option("", "--missing",
 parser.add_option("", "--multiplier",
                 action="store", default=1,
                 help="the density multiplier (default %default)")
+parser.add_option("", "--ignore-region",
+                action="store",
+                help="the name of a region to ignore")
 
 parser.add_option("", "--db-host",
                 action="store",
@@ -93,7 +96,7 @@ def get_local_densities():
   try:
     c.execute("""
       select y, x, data_value.value / region.area density
-         , grid.region_id
+         , region.name
       from grid
       join region on grid.region_id = region.id
       left join (
@@ -109,11 +112,15 @@ def get_local_densities():
     
     a = [ [None for i in range(X+1)] for j in range(Y+1) ]
     for r in c.fetchall():
-      y, x, v, region_id = r
+      y, x, v, region_name = r
+      if region_name and region_name == options.ignore_region:
+        continue
+      
       if v == 0 and options.zero:
         v = options.zero / multiplier
       if v is None and options.missing:
         v = options.missing / multiplier
+      
       try:
         a[y][x] = v
       except IndexError:
