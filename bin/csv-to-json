@@ -13,6 +13,9 @@ parser = optparse.OptionParser()
 parser.add_option("", "--rank",
                 action="store_true",
                 help="output the ranks rather than the values")
+parser.add_option("", "--desc",
+                action="store_true",
+                help="rank in descending order")
 parser.add_option("", "--key",
                 action="store",
                 help="the column name of the key column")
@@ -57,7 +60,7 @@ rows = ((
 if options.rank:
     d = dict((
         (key, index+1)
-        for index, (key, value) in enumerate(sorted(rows, key=lambda (key, value): value))
+        for index, (key, value) in enumerate(sorted(rows, key=lambda (key, value): value, reverse=options.desc))
     ))
 else:
     d = dict(rows)
