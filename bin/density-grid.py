@@ -18,10 +18,10 @@ parser.add_option("", "--map",
                 help="the name of the map to use")
 
 parser.add_option("", "--zero",
-                action="store", type="float", default=0.1,
+                action="store", default="10%",
                 help="Value to use for regions with zero data values (default %default)")
 parser.add_option("", "--missing",
-                action="store", type="float", default=None,
+                action="store", default=None,
                 help="Value to use for regions with missing data (default %default)")
 parser.add_option("", "--multiplier",
                 action="store", default=1,
@@ -91,6 +91,22 @@ def get_global_density():
     finally:
         c.close()
 
+global_density = get_global_density()
+
+def decode_value_option(option_name, option_value):
+  try:
+    if not option_value:
+      return None
+    if option_value.endswith("%"):
+      return float(option_value[:-2]) / 100 * global_density
+    else:
+      return float(option_value) / multiplier
+  except ValueError:
+    parser.error("Bad value for --%s: %s", option_value, option_value)
+
+options_zero = decode_value_option("zero", options.zero)
+options_missing = decode_value_option("missing", options.missing)
+
 def get_local_densities():
   c = db.cursor()
   try:
@@ -116,10 +132,10 @@ def get_local_densities():
       if region_name and region_name == options.ignore_region:
         continue
       
-      if v == 0 and options.zero:
-        v = options.zero / multiplier
-      if v is None and options.missing:
-        v = options.missing / multiplier
+      if v == 0 and options_zero:
+        v = options_zero
+      elif v is None and options_missing:
+        v = options_missing
       
       try:
         a[y][x] = v
@@ -131,7 +147,6 @@ def get_local_densities():
   finally:
     c.close()
 
-global_density = get_global_density()
 local_densities = get_local_densities()
 def density_at_position(x, y):
   return multiplier * (local_densities[y][x] or global_density)
