@@ -23,6 +23,9 @@ parser.add_option("", "--zero",
 parser.add_option("", "--missing",
                 action="store", default=None,
                 help="Value to use for regions with missing data (default %default)")
+parser.add_option("", "--min-area",
+                action="store", default=None, type="float",
+                help="Minimum area of resulting region (imposes a density floor)")
 parser.add_option("", "--multiplier",
                 action="store", default=1,
                 help="the density multiplier (default %default)")
@@ -106,6 +109,7 @@ def decode_value_option(option_name, option_value):
 
 options_zero = decode_value_option("zero", options.zero)
 options_missing = decode_value_option("missing", options.missing)
+min_weight = options.min_area * global_density if options.min_area else None
 
 def get_local_densities():
   c = db.cursor()
@@ -113,6 +117,7 @@ def get_local_densities():
     c.execute("""
       select y, x, data_value.value / region.area density
          , region.name
+         , region.area
       from grid
       join region on grid.region_id = region.id
       left join (
@@ -128,7 +133,7 @@ def get_local_densities():
     
     a = [ [None for i in range(X+1)] for j in range(Y+1) ]
     for r in c.fetchall():
-      y, x, v, region_name = r
+      y, x, v, region_name, region_area = r
       if region_name and region_name == options.ignore_region:
         continue
       
@@ -136,6 +141,9 @@ def get_local_densities():
         v = options_zero
       elif v is None and options_missing:
         v = options_missing
+      
+      if min_weight and v * region_area < min_weight:
+        v = min_weight / region_area
       
       try:
         a[y][x] = v
