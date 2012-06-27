@@ -27,17 +27,17 @@ insert into region (division_id, name, the_geom, area) (
 commit;
 
 -- Obviously Ireland is not a UK county, but sometimes we want to draw it on the same map
--- so it’s useful to have it here.
+-- so it’s useful to have it here. Similarly the Isle of Man.
 
 -- Fetch http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/10m-admin-0-countries.zip
 -- shp2pgsql -s 4326 -W LATIN1 ~/Downloads/10m-admin-0-countries/ne_10m_admin_0_countries | psql
 insert into region (division_id, name, the_geom, area) (
-  select uk_counties_division.id, 'Ireland',
+  select uk_counties_division.id, ne_10m_admin_0_countries.name,
          ne_10m_admin_0_countries.the_geom, ST_Area(ne_10m_admin_0_countries.the_geom)
   from division uk_counties_division
       , ne_10m_admin_0_countries
   where uk_counties_division.name = 'uk-counties'
-  and ne_10m_admin_0_countries.name = 'Ireland'
+  and ne_10m_admin_0_countries.name in ('Ireland', 'Isle of Man')
 );
 
 select compute_breakpoints('uk-counties');
