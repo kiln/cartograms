@@ -83,13 +83,23 @@ c.close()
 def get_global_density():
     c = db.cursor()
     try:
-        c.execute("""
-            select sum(data_value.value) / sum(region.area)
-            from region
-            join data_value on region.id = data_value.region_id
-            join dataset on data_value.dataset_id = dataset.id
-            where dataset.name = %s and region.division_id = %s
-        """, (dataset_name, division_id))
+        if options.ignore_region:
+            c.execute("""
+                select sum(data_value.value) / sum(region.area)
+                from region
+                join data_value on region.id = data_value.region_id
+                join dataset on data_value.dataset_id = dataset.id
+                where dataset.name = %s and region.division_id = %s
+                and region.name <> %s
+            """, (dataset_name, division_id, options.ignore_region))
+        else:
+            c.execute("""
+                select sum(data_value.value) / sum(region.area)
+                from region
+                join data_value on region.id = data_value.region_id
+                join dataset on data_value.dataset_id = dataset.id
+                where dataset.name = %s and region.division_id = %s
+            """, (dataset_name, division_id))
         return c.fetchone()[0]
     finally:
         c.close()
