@@ -83,23 +83,38 @@ c.close()
 def get_global_density():
     c = db.cursor()
     try:
-        if options.ignore_region:
-            c.execute("""
-                select sum(data_value.value) / sum(region.area)
+        if options.missing:
+            # Assume the value of the --missing option is small, so can
+            # be approximated by a zero data value for the missing regions.
+            query = """
+                select sum(coalesce(data_value.value, %s)) / sum(region.area)
                 from region
-                join data_value on region.id = data_value.region_id
-                join dataset on data_value.dataset_id = dataset.id
-                where dataset.name = %s and region.division_id = %s
-                and region.name <> %s
-            """, (dataset_name, division_id, options.ignore_region))
+                left join (
+                    select data_value.value, data_value.region_id
+                    from data_value
+                    join dataset on data_value.dataset_id = dataset.id
+                    where dataset.name = %s
+                ) data_value on data_value.region_id = region.id
+                where region.division_id = %s
+            """
+            bind_variables = (0, dataset_name, division_id)
         else:
-            c.execute("""
+            # if --missing is not supplied, then missing regions are
+            # filled with the global average density like the ocean.
+            query = """
                 select sum(data_value.value) / sum(region.area)
                 from region
                 join data_value on region.id = data_value.region_id
                 join dataset on data_value.dataset_id = dataset.id
                 where dataset.name = %s and region.division_id = %s
-            """, (dataset_name, division_id))
+            """
+            bind_variables = (dataset_name, division_id)
+        
+        if options.ignore_region:
+            query += " and region.name <> %s"
+            bind_variables += (options.ignore_region,)
+        
+        c.execute(query, bind_variables)
         return c.fetchone()[0]
     finally:
         c.close()
