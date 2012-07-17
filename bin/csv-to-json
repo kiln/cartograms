@@ -22,6 +22,9 @@ parser.add_option("", "--key",
 parser.add_option("", "--value",
                 action="store",
                 help="the column name of the value column")
+parser.add_option("", "--exclude",
+                action="store",
+                help="row to exclude (specified as value of key column)")
 parser.add_option("", "--type",
                 action="store", default="unicode",
                 help="the type of the value column (default %default)")
@@ -56,6 +59,7 @@ value_index = header.index(options.value)
 rows = ((
     (row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")))
     for row in r
+    if row[key_index] != options.exclude
 ))
 if options.rank:
     d = dict((
