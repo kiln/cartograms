@@ -111,7 +111,7 @@ def decode_value_option(option_name, option_value):
     if not option_value:
       return None
     if option_value.endswith("%"):
-      return float(option_value[:-2]) / 100 * global_density
+      return float(option_value[:-1]) / 100 * global_density
     else:
       return float(option_value) / multiplier
   except ValueError:
