@@ -115,7 +115,7 @@ def decode_value_option(option_name, option_value):
     else:
       return float(option_value) / multiplier
   except ValueError:
-    parser.error("Bad value for --%s: %s", option_value, option_value)
+    parser.error("Bad value for --%s: %s" % (option_name, option_value))
 
 options_zero = decode_value_option("zero", options.zero)
 options_missing = decode_value_option("missing", options.missing)
