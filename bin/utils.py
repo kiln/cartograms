@@ -1,6 +1,8 @@
 
 import math
+import os
 import re
+import cPickle as pickle
 
 import numpy
 
@@ -58,11 +60,27 @@ class Interpolator(object):
   def map(self, coords):
     return [ self(x, y) for x, y in coords ]
 
+def is_newer(a, b):
+  """Is the file a newer than (or, more precisely, not older than) b?
+  """
+  return os.stat(a).st_mtime >= os.stat(b).st_mtime
 
 class FastInterpolator(object):
   """Faster linear interpolation, using scipy.interpolate.
   """
   def __init__(self, grid_filename, m):
+    pickle_filename = grid_filename + ".pickled"
+    if os.path.isfile(pickle_filename) and is_newer(pickle_filename, grid_filename):
+      with open(pickle_filename, 'r') as f:
+        self.x = pickle.load(f)
+        self.y = pickle.load(f)
+    else:
+      self.load_cart(grid_filename, m)
+      with open(pickle_filename, 'w') as f:
+        pickle.dump(self.x, f, -1)
+        pickle.dump(self.y, f, -1)
+  
+  def load_cart(self, grid_filename, m):
     import scipy.interpolate
     grid = numpy.fromfile(grid_filename, sep=' ').reshape(3*m.height+1, 3*m.width+1, 2)
     
