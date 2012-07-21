@@ -5,6 +5,7 @@ import json
 import math
 import optparse
 from pipes import quote as shell_quote
+import cPickle as pickle
 import re
 import shlex
 import sys
@@ -14,6 +15,89 @@ from shapely.geometry import LineString, MultiLineString, GeometryCollection
 import psycopg2
 
 import utils
+
+class SimplifiedPolygonRing(object):
+    def __init__(self, coords):
+        self.coords = coords
+
+class SimplifiedGeom(object):
+    def __init__(self, exterior, interiors):
+        self.exterior = exterior
+        self.interiors = interiors
+
+class SimplifiedMultipolygon(object):
+  def __init__(self, region_name, geoms):
+    self.region_name = region_name
+    self.geoms = geoms
+
+class MultipolygonSimplifier(object):
+  def __init__(self, simplification_dict, simplification, interpolators):
+    self.simplification_dict = simplification_dict
+    self.simplification = simplification
+    self.interpolators = interpolators
+  
+  def simplify(self, region_name, multipolygon, breakpoints):
+    return [
+      SimplifiedGeom(
+        exterior=self._simplify(region_name, geom.exterior, breakpoints),
+        interiors=[
+          self._simplify(region_name, interior, breakpoints)
+          for interior in geom.interiors
+        ]
+      )
+      for geom in multipolygon.geoms
+    ]
+  
+  def _simplify(self, region_name, ring, breakpoints):
+    simplification = self.simplification_dict.get(region_name, self.simplification)
+    
+    prev = None
+    for segment in self._segments(ring.coords, breakpoints):
+      ls = LineString(segment)
+      ls = ls.simplify(tolerance=simplification / self._max_stretch(segment), preserve_topology=False)
+      
+      ret = []
+      for coord in ls.coords:
+        if coord != prev:
+          ret.append(coord)
+        prev = coord
+    
+    return SimplifiedPolygonRing(ret)
+  
+  def _segments(self, coords, breakpoints):
+    segments = [[]]
+    for coord in coords:
+      segments[-1].append(coord)
+      if coord in breakpoints:
+        segments.append([coord])
+    
+    if len(segments) > 1:
+      # Join the first and last segments
+      segments[0] = segments.pop() + segments[0]
+    
+    return segments
+  
+  def _segment_length(self, segment):
+    return sum([
+      math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
+      for (x1, y1), (x2, y2) in zip(segment, segment[1:])
+    ])
+  
+  def _max_stretch(self, segment):
+    l = self._segment_length(segment)
+    if l == 0 or self.interpolators.keys() == ["_raw"]:
+      return 1
+    
+    max_stretch = max([
+      self._segment_length(interpolator.map(segment))
+      for interpolator in self.interpolators.values() if interpolator
+    ])
+    
+    if max_stretch > l:
+      return max_stretch / l
+    else:
+      return 1
+
 
 class AsJSON(object):
   def __init__(self, options, carts):
@@ -54,6 +138,29 @@ class AsJSON(object):
       self.interpolators[cart_name] = utils.FastInterpolator(cart, self.m)
   
   def region_paths(self):
+    if self.options.load_regions:
+      with open(self.options.load_regions, 'r') as f:
+        while True:
+          try:
+            yield pickle.load(f)
+          except EOFError:
+            return
+    
+    if self.options.dump_regions:
+      with open(self.options.dump_regions, 'w') as f:
+        for region in self._region_paths(f):
+          yield region
+    else:
+      for region in self._region_paths():
+        yield region
+  
+  def _region_paths(self, dump_file=None):
+    simplifier = MultipolygonSimplifier(
+        simplification_dict=self.simplification_dict,
+        simplification=self.options.simplification,
+        interpolators=self.interpolators,
+    )
+    
     c = self.db.cursor()
     try:
       c.execute("""
@@ -69,8 +176,11 @@ class AsJSON(object):
       
       for region_id, region_name, g in c:
         p = shapely.wkb.loads(str(g))
-        
-        yield region_name, p, self.breakpoints(region_id, region_name)
+        breakpoints = self.breakpoints(region_id, region_name),
+
+        smp = SimplifiedMultipolygon(region_name, simplifier.simplify(region_name, p, breakpoints))
+        if dump_file: pickle.dump(smp, dump_file, -1)
+        yield smp
     
     finally:
       c.close()
@@ -127,25 +237,16 @@ class AsJSON(object):
     
     empty_object_json = json.dumps( dict(( (k, {}) for k in self.interpolators.keys() )) )
     print >>self.out, "var %s = %s;" % (self.options.data_var, empty_object_json,)
-    if self.options.include_segments:
-      print >>self.out, "var segments = %s;" % (empty_object_json,)
     
-    for region_name, p, breakpoints in self.region_paths():
-      print >>sys.stderr, "Extracting paths for {region_name}...".format(region_name=region_name)
-      for k, path in self.multipolygon_as_svg(p, breakpoints, region_name).items():
-        if self.options.include_segments:
-          self.segments = []
-        
+    for region in self.region_paths():
+      print >>sys.stderr, "Extracting paths for {region_name}...".format(region_name=region.region_name)
+      for k, path in self.multipolygon_as_svg(region).items():
         print >>self.out, "{data_var}[{k}][{region_name}] = {path};".format(
           data_var=self.options.data_var,
           k=json.dumps(k),
-          region_name=json.dumps(region_name),
+          region_name=json.dumps(region.region_name),
           path=json.dumps(path),
         )
-        
-        if self.options.include_segments and k == "_raw":
-          print "segments[\"%s\"] = %r;" % (region_name, self.segments)
-    
   
   def _transform(self, x, y):
     if not self.options.output_grid:
@@ -154,65 +255,13 @@ class AsJSON(object):
       (x - self.m.x_min) * self.options.output_grid_width / (self.m.x_max - self.m.x_min),
       self.options.output_grid_height - (y - self.m.y_min) * self.options.output_grid_height / (self.m.y_max - self.m.y_min),
     )
-
-  def _segments(self, coords, breakpoints):
-    segments = [[]]
-    for coord in coords:
-      segments[-1].append(coord)
-      if coord in breakpoints:
-        segments.append([coord])
-    
-    if len(segments) > 1:
-      # Join the first and last segments
-      segments[0] = segments.pop() + segments[0]
-    
-    if self.options.include_segments:
-      for segment in segments:
-        self.segments.append([ list(self._transform(x, y)) for x, y in segment ])
-    
-    return segments
   
-  def _segment_length(self, segment):
-    return sum([
-      math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
-      for (x1, y1), (x2, y2) in zip(segment, segment[1:])
-    ])
-  
-  def _max_stretch(self, segment):
-    l = self._segment_length(segment)
-    if l == 0 or self.interpolators.keys() == ["_raw"]:
-      return 1
-    
-    max_stretch = max([
-      self._segment_length(interpolator.map(segment))
-      for interpolator in self.interpolators.values() if interpolator
-    ])
-    
-    if max_stretch > l:
-      return max_stretch / l
-    else:
-      return 1
-  
-  def _simplify(self, coords, breakpoints, region_name):
-    simplification = self.simplification_dict.get(region_name, self.options.simplification)
-    
-    prev = None
-    for segment in self._segments(coords, breakpoints):
-      ls = LineString(segment)
-      ls = ls.simplify(tolerance=simplification / self._max_stretch(segment), preserve_topology=False)
-      
-      for coord in ls.coords:
-        if coord != prev:
-          yield coord
-        prev = coord
-  
-  def polygon_ring_as_svg(self, ring, breakpoints, path_arrs, region_name):
-    coords = list(self._simplify(ring.coords, breakpoints, region_name))
+  def polygon_ring_as_svg(self, ring, path_arrs):
     for k, path_arr in path_arrs.items():
       path_arr.append("M")
       first = True
       interpolator = self.interpolators.get(k)
-      for x, y in interpolator.map(coords) if interpolator else coords:
+      for x, y in interpolator.map(ring.coords) if interpolator else ring.coords:
         x, y = self._transform(x, y)
         path_arr.append("%.0f" % x)
         path_arr.append("%.0f" % y)
@@ -232,14 +281,14 @@ class AsJSON(object):
         path_arr[-5:] = []
         return
 
-  def multipolygon_as_svg(self, multipolygon, breakpoints, region_name):
+  def multipolygon_as_svg(self, region):
     path_arrs = dict((
       (k, []) for k in self.interpolators.keys()
     ))
-    for g in multipolygon.geoms:
-      self.polygon_ring_as_svg(g.exterior, breakpoints, path_arrs, region_name)
+    for g in region.geoms:
+      self.polygon_ring_as_svg(g.exterior, path_arrs)
       for interior in g.interiors:
-        self.polygon_ring_as_svg(interior, breakpoints, path_arrs, region_name)
+        self.polygon_ring_as_svg(interior, path_arrs)
   
     return dict((
       (k, " ".join(path_arr))
@@ -283,9 +332,24 @@ def main():
                     action="store",
                     help="database username")
   
-  parser.add_option("", "--include-segments",
-                    action="store_true",
-                    help="include segments in the output. Useful for debugging")
+  # Dump and load regions
+  #
+  # This is useful in certain special circumstances:
+  #
+  # - if a new cartogram needs to be generated to add to an existing set,
+  #   so that we do not want to generate a new and possibly different
+  #   simplification.
+  #
+  # - if we need to generate a cartogram in a hurry for some reason, so
+  #   do not want to wait for the raw paths to be loaded and the best
+  #   simplification to be computed.
+  parser.add_option("", "--dump-regions",
+                    action="store",
+                    help="name of a file into which to dump the region paths")
+  parser.add_option("", "--load-regions",
+                    action="store",
+                    help="name of a file from which to load region paths")
+  
   parser.add_option("-o", "--output",
                     action="store",
                     help="the name of the output file (defaults to stdout)")
@@ -294,6 +358,9 @@ def main():
   
   if not options.map:
     parser.error("Missing option --map")
+  
+  if options.dump_regions and options.load_regions:
+    parser.error("Cannot specify both --dump-regions and --load-regions")
   
   if options.output_grid:
     mo = re.match(r"^(\d+)x(\d+)$", options.output_grid)
