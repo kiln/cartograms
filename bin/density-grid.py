@@ -121,6 +121,11 @@ def get_global_density():
 
 global_density = get_global_density()
 
+# If there is no density at all on the whole map then we
+# want all the regions to shrivel up to almost nothing.
+if global_density is None or global_density == 0:
+  global_density = 1.0
+
 def decode_value_option(option_name, option_value):
   try:
     if not option_value:
