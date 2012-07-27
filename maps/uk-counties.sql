@@ -2,7 +2,7 @@
 -- just copies it and adds the counties of Northern Ireland and the Isle of Man
 
 -- Fetch http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/10m-admin-0-countries.zip
--- shp2pgsql -s 4326 -W LATIN1 ~/Downloads/10m-admin-0-countries/ne_10m_admin_0_countries | psql
+-- shp2pgsql -s 4326 -W LATIN1 10m-admin-0-countries/ne_10m_admin_0_countries | psql
 
 create table northern_ireland_county (
   name varchar not null unique
