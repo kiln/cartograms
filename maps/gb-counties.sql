@@ -1,3 +1,11 @@
+-- bdline_gb data downloaded from http://www.ordnancesurvey.co.uk/oswebsite/products/boundary-line/index.html
+
+-- # Loading the county boundaries from the OS
+-- $ shp2pgsql -s 27700 county_region.shp county |psql
+-- $ shp2pgsql -s 27700 district_borough_unitary_region.shp unitary_region |psql
+
+begin;
+
 insert into division (name) values ('gb-counties');
 
 insert into region (division_id, name, the_geom, area) (
@@ -512,3 +520,5 @@ insert into grid ( map_id, division_id, x, y, pt_4326, region_id ) (
     and x%2 = 0 and y%2 = 0
     and coarse_map.name = 'os-britain-counties-coarse'
 );
+
+commit;

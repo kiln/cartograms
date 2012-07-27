@@ -1,5 +1,8 @@
 -- Assumes gb-counties.sql has already been loaded;
--- just copies it and adds the counties of Northern Ireland
+-- just copies it and adds the counties of Northern Ireland and the Isle of Man
+
+-- Fetch http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/10m-admin-0-countries.zip
+-- shp2pgsql -s 4326 -W LATIN1 ~/Downloads/10m-admin-0-countries/ne_10m_admin_0_countries | psql
 
 create table northern_ireland_county (
   name varchar not null unique
@@ -29,8 +32,6 @@ commit;
 -- Obviously Ireland is not a UK county, but sometimes we want to draw it on the same map
 -- so it’s useful to have it here. Similarly the Isle of Man.
 
--- Fetch http://www.naturalearthdata.com/http//www.naturalearthdata.com/download/10m/cultural/10m-admin-0-countries.zip
--- shp2pgsql -s 4326 -W LATIN1 ~/Downloads/10m-admin-0-countries/ne_10m_admin_0_countries | psql
 insert into region (division_id, name, the_geom, area) (
   select uk_counties_division.id, ne_10m_admin_0_countries.name,
          ne_10m_admin_0_countries.the_geom, ST_Area(ne_10m_admin_0_countries.the_geom)
@@ -41,7 +42,6 @@ insert into region (division_id, name, the_geom, area) (
 );
 
 select compute_breakpoints('uk-counties');
-
 
 -- robin=> select ST_Extent(ST_Transform(the_geom, 27700)) from region where division_id = (select id from division where name = 'uk-counties');
 --  BOX(-179492.868803394 5333.59922513456,655989.000960375 1220301.5004298)
