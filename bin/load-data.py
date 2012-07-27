@@ -61,21 +61,23 @@ c.execute("""
 dataset_id = c.fetchone()[0]
 c.close()
 
-c = db.cursor()
-c.executemany("""
-        insert into data_value (
-            dataset_id,
-            division_id,
-            region_id,
-            value
-        ) (
-            select %s, division.id, region.id, %s
-            from region
-            join division on region.division_id = division.id
-            where division.name = %s and region.name = %s
-        )
-    """,
-    as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, Col(region_col))
-)
-c.close()
+for t in as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, Col(region_col)):
+    c = db.cursor()
+    c.execute("""
+            insert into data_value (
+                dataset_id,
+                division_id,
+                region_id,
+                value
+            ) (
+                select %s, division.id, region.id, %s
+                from region
+                join division on region.division_id = division.id
+                where division.name = %s and region.name = %s
+            )
+        """, t
+    )
+    if c.rowcount == 0:
+        print >>sys.stderr, "Region '{division_name}/{region_name}' not found in database".format(division_name=t[2], region_name=t[3])
+    c.close()
 db.commit()
