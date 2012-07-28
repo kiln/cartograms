@@ -21,12 +21,14 @@ parser.add_option("", "--db-user",
 (options, args) = parser.parse_args()
 dataset_name, csv_filename, division_name, region_col, value_col = args
 
-db_connection_string = "host=" + options.db_host
+db_connection_data = []
+if options.db_host:
+    db_connection_data.append("host=" + options.db_host)
 if options.db_name:
-    db_connection_string += " dbname=" + options.db_name
+    db_connection_data.append(" dbname=" + options.db_name)
 if options.db_user:
-    db_connection_string += " user=" + options.db_user
-db = psycopg2.connect(db_connection_string)
+    db_connection_data.append(" user=" + options.db_user)
+db = psycopg2.connect(" ".join(db_connection_data))
 
 
 def each(filename):
