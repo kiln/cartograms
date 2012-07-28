@@ -482,6 +482,12 @@ insert into region (division_id, name, the_geom, area) (
        , division
     where division.name = 'gb-counties'
 );
+
+/*
+-- This next part is needed to use the gb-counties maps directly.
+-- The part above (i.e. not commented out in this file) is also
+-- needed to make the uk-counties map.
+
 select compute_breakpoints('gb-counties');
 
 insert into map (
@@ -521,4 +527,5 @@ insert into grid ( map_id, division_id, x, y, pt_4326, region_id ) (
     and coarse_map.name = 'os-britain-counties-coarse'
 );
 
+*/
 commit;
