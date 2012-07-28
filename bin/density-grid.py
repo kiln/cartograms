@@ -63,12 +63,14 @@ else:
     map_name = options.map
     multiplier = options.multiplier
 
-db_connection_string = "host=" + options.db_host
+db_connection_data = []
+if options.db_host:
+    db_connection_data.append("host=" + options.db_host)
 if options.db_name:
-    db_connection_string += " dbname=" + options.db_name
+    db_connection_data.append(" dbname=" + options.db_name)
 if options.db_user:
-    db_connection_string += " user=" + options.db_user
-db = psycopg2.connect(db_connection_string)
+    db_connection_data.append(" user=" + options.db_user)
+db = psycopg2.connect(" ".join(db_connection_data))
 
 c = db.cursor()
 c.execute("""
