@@ -53,11 +53,11 @@ class MultipolygonSimplifier(object):
     simplification = self.simplification_dict.get(region_name, self.simplification)
     
     prev = None
+    ret = []
     for segment in self._segments(ring.coords, breakpoints):
       ls = LineString(segment)
       ls = ls.simplify(tolerance=simplification / self._max_stretch(segment), preserve_topology=False)
       
-      ret = []
       for coord in ls.coords:
         if coord != prev:
           ret.append(coord)
