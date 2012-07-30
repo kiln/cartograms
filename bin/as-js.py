@@ -171,7 +171,8 @@ class AsJSON(object):
       c.execute("""
         select region.id
              , region.name
-             , ST_AsEWKB(ST_Transform(region.the_geom, %(srid)s)) g
+             , ST_AsEWKB(ST_Transform(region.the_geom, %(srid)s)) geom_wkb
+             , ST_AsEWKB(ST_Transform(region.breakpoints, %(srid)s)) breakpoints_wkb
         from region
         where region.division_id = %(division_id)s
       """, {
@@ -179,55 +180,15 @@ class AsJSON(object):
           "division_id": self.m.division_id
       })
       
-      for region_id, region_name, g in c:
-        p = shapely.wkb.loads(str(g))
-        breakpoints = self.breakpoints(region_id, region_name),
-
-        smp = SimplifiedMultipolygon(region_name, simplifier.simplify(region_name, p, breakpoints))
+      for region_id, region_name, geom_wkb, breakpoints_wkb in c:
+        geom = shapely.wkb.loads(str(geom_wkb))
+        breakpoints = set() if breakpoints_wkb is None else set((
+          (point.x, point.y) for point in shapely.wkb.loads(str(breakpoints_wkb))
+        ))
+        
+        smp = SimplifiedMultipolygon(region_name, simplifier.simplify(region_name, geom, breakpoints))
         if dump_file: pickle.dump(smp, dump_file, -1)
         yield smp
-    
-    finally:
-      c.close()
-  
-  def breakpoints(self, region_id, region_name):
-    c = self.db.cursor()
-    try:
-      c.execute("""
-        select ST_AsEWKB(
-                ST_Transform(breakpoints, %(srid)s)
-              ) breakpoints
-        from region
-        where id = %(region_id)s
-      """, {
-        "srid": self.m.srid,
-        "region_id": region_id,
-      })
-      
-      row = c.fetchone()
-      if row[0] is None:
-        return set()
-      
-      try:
-        multipoint = shapely.wkb.loads(str(row[0]))
-      except Exception, exception:
-        print >>sys.stderr, "Failed to load checkpoints ({checkpoints}) for {region_name}: {exception}".format(
-          region_name=region_name,
-          exception=repr(exception),
-          checkpoints=repr(str(row[0]))
-        )
-        return set()
-      
-      return set((
-        (point.x, point.y) for point in multipoint
-      ))
-      
-    except Exception, exception:
-      print >>sys.stderr, "Database error loading checkpoints for {region_name}: {exception}".format(
-          region_name=region_name,
-          exception=repr(exception),
-        )
-      return set()
     
     finally:
       c.close()
