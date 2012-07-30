@@ -4,6 +4,7 @@ import datetime
 import json
 import math
 import optparse
+import os
 from pipes import quote as shell_quote
 import cPickle as pickle
 import re
@@ -150,9 +151,10 @@ class AsJSON(object):
             return
     
     if self.options.dump_regions:
-      with open(self.options.dump_regions, 'w') as f:
+      with open(self.options.dump_regions + ".new", 'w') as f:
         for region in self._region_paths(f):
           yield region
+      os.rename(self.options.dump_regions + ".new", self.options.dump_regions)
     else:
       for region in self._region_paths():
         yield region
