@@ -58,6 +58,8 @@ def main():
     sys.stdout.flush()
     
     w = csv.writer(sys.stdout)
+    if conf.get("header", False):
+        w.writerow([conf.get("key")] + columns)
     for row in sorted(rows):
         w.writerow([row] + [
             entries.get((col, row), "").encode("utf-8")
