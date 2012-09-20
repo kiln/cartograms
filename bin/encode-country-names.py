@@ -17,7 +17,7 @@ def normalise(country_name):
 class CountryNameEncoder(object):
     def __init__(self):
         code_by_name = {}
-        for line in open("data/iso-country-codes.ssv", 'r'):
+        for line in open("cartograms/data/iso-country-codes.ssv", 'r'):
             split_line = line.strip().split(";")
             code = split_line[0]
             names = split_line[1:]
@@ -31,6 +31,7 @@ class CountryNameEncoder(object):
 
     def process_file(self, csv_file_name,
         country_name_column=0,
+        code_column="Alpha-2",
         write_to=sys.stdout,
         input_delimiter=',', output_delimiter=',',
         has_header=True
@@ -51,7 +52,7 @@ class CountryNameEncoder(object):
                 country_name_column_number = header.index(country_name_column)
                 # (If that fails, we get a ValueError)
         
-            header[1:1] = ["Alpha-2"]
+            header[1:1] = [code_column]
             w.writerow(header)
         else:
             country_name_column_number = int(country_name_column)
@@ -71,6 +72,8 @@ def main():
     parser = OptionParser()
     parser.add_option("", "--country-col", default=0,
                       help="number or name of country name column")
+    parser.add_option("", "--code-col", default="Alpha-2",
+                      help="name of the alpha-2 column we add")
     parser.add_option("", "--input-delimiter", default=',',
                       help="Field delimiter for input file (default %default)")
     parser.add_option("", "--output-delimiter", default=',',
@@ -84,6 +87,7 @@ def main():
     
     CountryNameEncoder().process_file(args[0],
         country_name_column=options.country_col,
+        code_column=options.code_col,
         input_delimiter=options.input_delimiter,
         output_delimiter=options.output_delimiter,
         has_header=options.has_header)
