@@ -11,6 +11,7 @@ import sys
 
 def normalise(country_name):
   s = country_name.upper()
+  if s == "AND": return s
   return re.sub(r'[^A-Z]|\bAND\b|\bTHE\b', '', s)
 
 # Read in the list of country codes
@@ -25,7 +26,8 @@ class CountryNameEncoder(object):
                 norm = normalise(name)
                 if norm in code_by_name:
                     raise Exception("Normalised name '%s' already seen" % (norm))
-                code_by_name[norm] = code
+                if norm:
+                    code_by_name[norm] = code
         
         self.code_by_name = code_by_name
 
