@@ -65,6 +65,9 @@ c.close()
 
 for t in as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, Col(region_col)):
     c = db.cursor()
+    if not t[1]:
+      print >>sys.stderr, "Skipping '%s', because the value is blank" % (t[3],)
+      continue
     c.execute("""
             insert into data_value (
                 dataset_id,
