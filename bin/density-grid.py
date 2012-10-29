@@ -74,6 +74,15 @@ db = psycopg2.connect(" ".join(db_connection_data))
 
 c = db.cursor()
 c.execute("""
+  select id from dataset where name = %s
+""", (dataset_name,))
+if c.fetchone() is None:
+  print >>sys.stderr, "%s: Dataset '%s' does not exist" % (sys.argv[0], dataset_name)
+  sys.exit(2)
+c.close()
+
+c = db.cursor()
+c.execute("""
   select id, division_id, srid,
          width, height
   from map
