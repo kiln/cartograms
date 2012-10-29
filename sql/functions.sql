@@ -28,6 +28,30 @@ begin
                ), 4326
              ) pt_4326
       from pregrid
+      -- NB: This is only correct for pseudocylindrical projections!
+      where x
+        between ST_X(ST_Transform(
+            ST_SetSRID(
+                ST_MakePoint(
+                    -180,
+                    ST_Y(
+                        ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                    )
+                ),
+                4326
+            ), srid
+        ))
+        and ST_X(ST_Transform(
+            ST_SetSRID(
+                ST_MakePoint(
+                    +180,
+                    ST_Y(
+                        ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                    )
+                ),
+                4326
+            ), srid
+        ))
   );
 end;
 $$ language 'plpgsql';
