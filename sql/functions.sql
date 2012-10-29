@@ -44,11 +44,8 @@ create or replace function grid_set_regions(
       update grid
       set region_id = region.id
       from region
-      join division on region.division_id = division.id
-         , map
-      where grid.map_id = map.id
-      and division.name = division_name
-      and map.name = map_name
+      where region.division_id = (select id from division where name = division_name)
+      and grid.map_id = (select id from map where name = map_name)
       and ST_Contains(region.the_geom, grid.pt_4326)
       and grid.y = r.i;
     end loop;
