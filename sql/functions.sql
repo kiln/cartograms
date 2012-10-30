@@ -103,6 +103,10 @@ create or replace function compute_breakpoints(
           where ST_Touches(region.the_geom, neighbour.the_geom)
           and neighbour.division_id = target_division_id
         ) x
+        where not ST_IsEmpty(x.border) and not (
+          GeometryType(x.border) = 'MULTILINESTRING'
+          and ST_IsEmpty( ST_Boundary(ST_LineMerge(x.border)) )
+        )
       )
     where division_id = target_division_id;
   end;
