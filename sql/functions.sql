@@ -29,7 +29,7 @@ begin
              ) pt_4326
       from pregrid
       -- NB: This is only correct for pseudocylindrical projections!
-      where x
+      where mx
         between ST_X(ST_Transform(
             ST_SetSRID(
                 ST_MakePoint(
