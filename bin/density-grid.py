@@ -1,7 +1,10 @@
 #!/usr/bin/python
 # -*- encoding: utf-8 -*-
 
+from __future__ import division
+
 import optparse
+import re
 import sys
 import psycopg2
 
@@ -23,12 +26,6 @@ parser.add_option("", "--zero",
 parser.add_option("", "--missing",
                 action="store", default=None,
                 help="Value to use for regions with missing data (default %default)")
-parser.add_option("", "--min-area",
-                action="store", default=None, type="float",
-                help="Minimum area of resulting region (imposes a density floor)")
-parser.add_option("", "--multiplier",
-                action="store", default=1,
-                help="the density multiplier (default %default)")
 parser.add_option("", "--ignore-region",
                 action="store",
                 help="the name of a region to ignore")
@@ -46,22 +43,15 @@ parser.add_option("", "--db-user",
 
 (options, args) = parser.parse_args()
 
-if len(args) in (2,3) and not options.map and not options.dataset:
-    # Legacy syntax
-    dataset_name = args[0]
-    map_name = args[1]
-    multiplier = args[2] if len(args) == 3 else 1
-else:
-    if not options.map:
-        parser.error("Missing option --map")
-    if not options.dataset:
-        parser.error("Missing option --dataset")
-    if args:
-        parser.error("Unexpected non-option arguments")
-    
-    dataset_name = options.dataset
-    map_name = options.map
-    multiplier = options.multiplier
+if not options.map:
+    parser.error("Missing option --map")
+if not options.dataset:
+    parser.error("Missing option --dataset")
+if args:
+    parser.error("Unexpected non-option arguments")
+
+dataset_name = options.dataset
+map_name = options.map
 
 db_connection_data = []
 if options.db_host:
@@ -74,139 +64,106 @@ db = psycopg2.connect(" ".join(db_connection_data))
 
 c = db.cursor()
 c.execute("""
-  select id from dataset where name = %s
+    select id from dataset where name = %s
 """, (dataset_name,))
 if c.fetchone() is None:
-  print >>sys.stderr, "%s: Dataset '%s' does not exist" % (sys.argv[0], dataset_name)
-  sys.exit(2)
+    print >>sys.stderr, "%s: Dataset '%s' does not exist" % (sys.argv[0], dataset_name)
+    sys.exit(2)
 c.close()
 
 c = db.cursor()
 c.execute("""
-  select id, division_id, srid,
-         width, height
-  from map
-  where name = %s
+    select id, division_id, srid,
+           width, height
+    from map
+    where name = %s
 """, (map_name,))
-map_id, division_id, srid, X, Y = c.fetchone()
+r = c.fetchone()
+if r is None:
+    print >>sys.stderr, "%s: Dataset '%s' does not exist" % (sys.argv[0], dataset_name)
+    sys.exit(2)
+map_id, division_id, srid, X, Y = r
 c.close()
 
-def get_global_density():
-    c = db.cursor()
-    try:
-        if options.missing:
-            # Assume the value of the --missing option is small, so can
-            # be approximated by a zero data value for the missing regions.
-            query = """
-                select sum(coalesce(data_value.value, %s)) / sum(region.area)
-                from region
-                left join (
-                    select data_value.value, data_value.region_id
-                    from data_value
-                    join dataset on data_value.dataset_id = dataset.id
-                    where dataset.name = %s
-                ) data_value on data_value.region_id = region.id
-                where region.division_id = %s
-            """
-            bind_variables = (0, dataset_name, division_id)
-        else:
-            # if --missing is not supplied, then missing regions are
-            # filled with the global average density like the ocean.
-            query = """
-                select sum(data_value.value) / sum(region.area)
-                from region
-                join data_value on region.id = data_value.region_id
-                join dataset on data_value.dataset_id = dataset.id
-                where dataset.name = %s and region.division_id = %s
-            """
-            bind_variables = (dataset_name, division_id)
-        
-        if options.ignore_region:
-            query += " and region.name <> %s"
-            bind_variables += (options.ignore_region,)
-        
-        c.execute(query, bind_variables)
-        return c.fetchone()[0]
-    finally:
-        c.close()
 
-global_density = get_global_density()
+# Parse the --zero and --missing options
+def percentage(x, option_name):
+  if x is None: return 0
+  mo = re.match(r"^(\d+)%$", x)
+  if mo is None:
+    parser.error("Failed to parse %s option" % (option_name,))
+  percent = float(mo.group(1))
+  if percent < 0:
+    parser.error("Value of %s option mustn't be negative" % (option_name,))
+  return percent / 100
 
-# If there is no density at all on the whole map then we
-# want all the regions to shrivel up to almost nothing.
-if global_density is None or global_density == 0:
-  global_density = 1.0
+zero = percentage(options.zero, "--zero")
+missing = percentage(options.missing, "--missing")
 
-def decode_value_option(option_name, option_value):
-  try:
-    if not option_value:
-      return None
-    if option_value.endswith("%"):
-      return float(option_value[:-1]) / 100 * global_density
-    else:
-      return float(option_value) / multiplier
-  except ValueError:
-    parser.error("Bad value for --%s: %s" % (option_name, option_value))
+# Get the local densities
+local_densities = [ [None for i in range(X+1)] for j in range(Y+1) ]
+density_sum, n_normal, n_zero, n_missing = 0, 0, 0, 0
 
-options_zero = decode_value_option("zero", options.zero)
-options_missing = decode_value_option("missing", options.missing)
-min_weight = options.min_area * global_density if options.min_area else None
-
-def get_local_densities():
-  c = db.cursor()
-  try:
+c = db.cursor()
+try:
     c.execute("""
-      select y, x, data_value.value / region.area density
-         , region.name
-         , region.area
-      from grid
-      join region on grid.region_id = region.id
-      left join (
-         select region_id, value
-         from data_value
-         join dataset on data_value.dataset_id = dataset.id
-         where dataset.name = %s
-      ) data_value using (region_id)
-      where grid.map_id = %s
-      and grid.division_id = %s
-      order by y, x
+        select y, x, data_value.value / region.area density
+           , region.name
+           , region.area
+        from grid
+        join region on grid.region_id = region.id
+        left join (
+           select region_id, value
+           from data_value
+           join dataset on data_value.dataset_id = dataset.id
+           where dataset.name = %s
+        ) data_value using (region_id)
+        where grid.map_id = %s
+        and grid.division_id = %s
+        order by y, x
     """, (dataset_name, map_id, division_id))
     
-    a = [ [None for i in range(X+1)] for j in range(Y+1) ]
     for r in c.fetchall():
-      y, x, v, region_name, region_area = r
-      if region_name and region_name == options.ignore_region:
-        continue
-      
-      if v == 0 and options_zero:
-        v = options_zero
-      elif v is None and options_missing:
-        v = options_missing
-      
-      if min_weight and v * region_area < min_weight:
-        v = min_weight / region_area
-      
-      try:
-        a[y][x] = v
-      except IndexError:
-        raise Exception("Grid point (%d,%d) is out of range (%d,%d)" % (x,y,X,Y))
-    
-    return a
-    
-  finally:
+        y, x, v, region_name, region_area = r
+        if region_name and region_name == options.ignore_region:
+            continue
+        
+        try:
+            local_densities[y][x] = v
+            if v == 0:
+              n_zero += 1
+            elif v is None:
+              n_missing += 1
+              local_densities[y][x] = "missing"
+            else:
+              n_normal += 1
+              density_sum += v
+        except IndexError:
+            raise Exception("Grid point (%d,%d) is out of range (%d,%d)" % (x,y,X,Y))
+
+finally:
     c.close()
 
-local_densities = get_local_densities()
-def density_at_position(x, y):
-  return multiplier * (local_densities[y][x] or global_density)
+global_density = density_sum / (n_normal + (1-missing)*n_missing + (1-zero)*n_zero)
 
-padding = " ".join(["%.5f" % (multiplier * global_density)] * X)
+def d(x, y):
+  v = local_densities[y][x]
+  if v == 0:
+    return zero * global_density
+  elif v == "missing":
+    return missing * global_density
+  elif v is None:
+    return global_density
+  else:
+    return v
+
+padding = " ".join(["%.5f" % (global_density)] * X)
 for y in range(Y):
-  print padding, padding, padding
+    print padding, padding, padding
 for y in range(Y):
-  print padding, (" ".join(["%.5f"] * X)) % tuple((
-    density_at_position(x, y) for x in range(X)
-  )), padding
+    print padding, (" ".join(["%.5f"] * X)) % tuple((
+      d(x, y) for x in range(X)
+    )), padding
 for y in range(Y):
-  print padding, padding, padding
+    print padding, padding, padding
 
