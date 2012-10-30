@@ -32,10 +32,11 @@ class SimplifiedMultipolygon(object):
     self.geoms = geoms
 
 class MultipolygonSimplifier(object):
-  def __init__(self, simplification_dict, simplification, interpolators):
+  def __init__(self, simplification_dict, simplification, interpolators, raw_key):
     self.simplification_dict = simplification_dict
     self.simplification = simplification
     self.interpolators = interpolators
+    self.raw_key = raw_key
   
   def simplify(self, region_name, multipolygon, breakpoints):
     return [
@@ -86,7 +87,7 @@ class MultipolygonSimplifier(object):
   
   def _max_stretch(self, segment):
     l = self._segment_length(segment)
-    if l == 0 or self.interpolators.keys() == [self.options.raw_key]:
+    if l == 0 or self.interpolators.keys() == [self.raw_key]:
       return 1
     
     max_stretch = max([
@@ -164,6 +165,7 @@ class AsJSON(object):
         simplification_dict=self.simplification_dict,
         simplification=self.options.simplification,
         interpolators=self.interpolators,
+        raw_key=self.options.raw_key,
     )
     
     c = self.db.cursor()
