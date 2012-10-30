@@ -107,11 +107,11 @@ class AsJSON(object):
     
     db_connection_data = []
     if options.db_host:
-	db_connection_data.append("host=" + options.db_host)
+      db_connection_data.append("host=" + options.db_host)
     if options.db_name:
-	db_connection_data.append(" dbname=" + options.db_name)
+      db_connection_data.append(" dbname=" + options.db_name)
     if options.db_user:
-	db_connection_data.append(" user=" + options.db_user)
+      db_connection_data.append(" user=" + options.db_user)
     
     self.db = psycopg2.connect(" ".join(db_connection_data))
     self.m = utils.Map(self.db, options.map)
