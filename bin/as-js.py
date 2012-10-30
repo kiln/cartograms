@@ -86,7 +86,7 @@ class MultipolygonSimplifier(object):
   
   def _max_stretch(self, segment):
     l = self._segment_length(segment)
-    if l == 0 or self.interpolators.keys() == ["_raw"]:
+    if l == 0 or self.interpolators.keys() == [self.options.raw_key]:
       return 1
     
     max_stretch = max([
@@ -134,7 +134,7 @@ class AsJSON(object):
   
   def _init_carts(self):
     self.interpolators = {
-      "_raw": None
+      self.options.raw_key: None
     }
     for cart in self.carts:
       cart_name = self._extract_cart_name(cart)
@@ -286,7 +286,11 @@ def main():
                     action="store",
                     default="data",
                     help="name of variable to use for the path data (default %default)")
-
+  parser.add_option("", "--raw-key",
+                    action="store",
+                    default="_raw",
+                    help="name of key to use for the raw map (default %default)")
+  
   parser.add_option("", "--db-host",
                     action="store",
                     default="localhost",
