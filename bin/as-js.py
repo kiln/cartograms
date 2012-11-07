@@ -223,26 +223,24 @@ class AsJSON(object):
         )
   
   def print_region_paths_actionscript(self):
+    def try_int(x):
+      try: return int(x)
+      except ValueError: return x
+    
     paths_by_key = {}
     for region in self.region_paths():
       print >>sys.stderr, "Extracting paths for {region_name}...".format(region_name=region.region_name)
       for k, path in self.multipolygon_as_svg(region).items():
-        paths_by_key.setdefault(k, []).append(path)
+        paths_by_key.setdefault(k, {})[region.region_name] = map(try_int, path.split(" "))
     
     print >>self.out, "package {"
     print >>self.out, "public class MapData {"
     print >>self.out, "  public var paths : Object = {};"
     print >>self.out, "  public function MapData() {"
     
-    def try_int(x):
-      try:
-        return int(x)
-      except ValueError:
-        return x
-    
     for k, paths in paths_by_key.iteritems():
       print >>self.out, "    paths[{k}] = {paths};".format(
-        paths=json.dumps(map(try_int, re.split(r" +", " ".join(paths)) )),
+        paths=json.dumps(paths),
         k=json.dumps(k),
       )
     
