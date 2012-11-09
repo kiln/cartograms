@@ -75,7 +75,7 @@ for t in as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, C
                 region_id,
                 value
             ) (
-                select %s, division.id, region.id, %s
+                select %s, division.id, region.id, GREATEST(0, %s::numeric)
                 from region
                 join division on region.division_id = division.id
                 where division.name = %s and region.name = %s
