@@ -1,0 +1,105 @@
+#!/usr/bin/python
+
+"""
+Snip out a section of a CSV file.
+"""
+
+import optparse
+import csv
+import re
+import string
+import sys
+
+def col_index(col):
+    """Take a spreadsheet-style column specifier, e.g. A, M, ZZ,
+    and convert it to a zero-based column index.
+    """
+    i = reduce(lambda x,y: 26*x + y, map(string.uppercase.index, col))
+    if len(col) > 1:
+        i += col_index("Z" * (len(col) - 1)) + 1
+    return i
+
+def parse_cols(cols, ncols):
+    """Parse a column specification, and return a list of indices.
+    Column specifications are like 'A,C,K' or 'C..F' or 'H..end'.
+    
+    (This could be extended to handle more general specifications
+    such as say 'A,C,K..H,M..end', but let's only do that if we
+    need it.)
+    """
+    if ".." in cols:
+        start, end = cols.split("..", 1)
+        if end == "end":
+            return range(col_index(start), ncols)
+        else:
+            return range(col_index(start), col_index(end) + 1)
+    
+    return map(col_index, cols.split(","))
+
+parser = optparse.OptionParser(usage="Usage: %prog [options] file.csv")
+parser.add_option("", "--cols",
+                action="store", default="A..end",
+                help="which columns to extract; default=%default")
+parser.add_option("", "--header-row",
+                action="store", type="int", default=1,
+                help="the row number of the header row; default %default. Pass 0 for no header")
+parser.add_option("", "--data-rows",
+                action="store", default="2..end",
+                help="Row range of data rows; default %default")
+parser.add_option("", "--expect-header",
+                action="store",
+                help="Expected value of header on selected cols, comma-separated")
+parser.add_option("", "--output-header",
+                action="store",
+                help="Header for output, comma-separated")
+parser.add_option("", "--munge",
+                action="append",
+                help="Value transformation for column, e.g. 'K=s/Total //'. Can appear multiple times")
+
+(options, args) = parser.parse_args()
+if not args:
+    parser.error("No file specified")
+if len(args) > 1:
+    parser.error("Unexpected argument: " + args[1])
+
+filename, = args
+
+with open(filename, 'r') as f:
+    rows = list(csv.reader(f))
+    w = csv.writer(sys.stdout)
+    
+    ncols = max([ len(row) for row in rows ])
+    cols = parse_cols(options.cols, ncols)
+    
+    if options.header_row > 0:
+        header = rows[options.header_row - 1]
+        if options.expect_header:
+            actual_header = [ header[j] for j in cols ]
+            expected_header = options.expect_header.split(",")
+            if actual_header != expected_header:
+                print >>sys.stderr, "%s: Header did not match expectations! Was %r, expected %r" % (
+                    sys.argv[0], actual_header, expected_header)
+                sys.exit(1)
+    
+    if options.output_header:
+        w.writerow(options.output_header.split(","))
+        start_row, end_row = options.data_rows.split("..")
+        i = int(start_row) - 1
+        assert i >= 0
+        while True:
+            row_data = [ rows[i][j] for j in cols ]
+            if end_row == "blank" and "".join(row_data) == "":
+                break
+            
+            w.writerow(row_data)
+            
+            if end_row not in ("blank", "end"):
+                if i + 1 == int(end_row):
+                    break
+            elif end_row == "end":
+                if i + 1 == len(rows):
+                    break
+            
+            i += 1
+    
+    
