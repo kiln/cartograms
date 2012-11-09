@@ -62,7 +62,23 @@ if not args:
 if len(args) > 1:
     parser.error("Unexpected argument: " + args[1])
 
+munge_by_index = {}
+if options.munge:
+    for s in options.munge:
+        mo = re.match(r"^([A-Z]+)=s/([^/]*)/([^/]*)/$", s)
+        if mo is None:
+            parser.error("Failed to parse --munge '%s'" % (s,))
+    
+        munge_by_index[col_index(mo.group(1))] = (mo.group(2), mo.group(3))
+
 filename, = args
+
+def maybe_munge(index, val):
+    if index in munge_by_index:
+        a, b = munge_by_index[index]
+        return re.sub(a, b, val)
+    else:
+        return val
 
 with open(filename, 'r') as f:
     rows = list(csv.reader(f))
@@ -87,7 +103,7 @@ with open(filename, 'r') as f:
         i = int(start_row) - 1
         assert i >= 0
         while True:
-            row_data = [ rows[i][j] for j in cols ]
+            row_data = [ maybe_munge(j, rows[i][j]) for j in cols ]
             if end_row == "blank" and "".join(row_data) == "":
                 break
             
