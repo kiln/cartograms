@@ -62,10 +62,30 @@ rows = ((
     if row[key_index] != options.exclude
 ))
 if options.rank:
-    d = dict((
-        (key, index+1)
-        for index, (key, value) in enumerate(sorted(rows, key=lambda (key, value): value, reverse=options.desc))
-    ))
+    # We want to return the rank, in exam format: supposing the values
+    # are {"A": 10, "B": 20, "C": 20, "D": 25} then the ranks should be
+    # {"A": "1", "B": "2=", "C": "2=", "D": 3}.
+    sorted_rows = sorted(rows, key=lambda (key, value): value, reverse=options.desc)
+    
+    rank = 1
+    d = {}
+    for i in range(len(sorted_rows)):
+        key, value = sorted_rows[i]
+        suffix = ""
+        if i > 0:
+            prev_value = sorted_rows[i-1][1]
+            if prev_value == value:
+                suffix = "="
+        if i < len(sorted_rows) - 1:
+            next_value = sorted_rows[i+1][1]
+            if next_value == value:
+                suffix = "="
+        
+        if suffix == "":
+            rank = i + 1
+        
+        d[key] = str(rank) + suffix
+    
 else:
     d = dict(rows)
 
