@@ -46,6 +46,12 @@ else:
     csv_file = open(args[0], 'r')
 
 def munge_value(v):
+    if v == "":
+        if options.type == "float":
+            return 0.0
+        elif options.type == "int":
+            return 0
+    
     v = getattr(__builtins__, options.type)(v)
     if options.format_string:
         v = options.format_string.format(v)
