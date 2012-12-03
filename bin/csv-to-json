@@ -14,7 +14,7 @@ parser.add_option("", "--rank",
                 action="store_true",
                 help="output the ranks rather than the values")
 parser.add_option("", "--desc",
-                action="store_true",
+                action="store_true", default=False,
                 help="rank in descending order")
 parser.add_option("", "--key",
                 action="store",
