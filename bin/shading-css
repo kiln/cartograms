@@ -81,6 +81,10 @@ def load_data(data_filename, shading_spec):
             region_key = row[region_key_col]
             value = row[value_col]
             
+            if value == "":
+                # Ignore blank values
+                continue
+            
             for shade_range, color in shades:
                 if float(value) in shade_range:
                     region_shades.setdefault(color, []).append(region_key)
