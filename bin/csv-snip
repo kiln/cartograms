@@ -40,6 +40,10 @@ parser = optparse.OptionParser(usage="Usage: %prog [options] file.csv")
 parser.add_option("", "--cols",
                 action="store", default="A..end",
                 help="which columns to extract; default=%default")
+parser.add_option("", "--extra-col",
+                action="store",
+                help="add an extra column with a constant value")
+
 parser.add_option("", "--header-row",
                 action="store", type="int", default=1,
                 help="the row number of the header row; default %default. Pass 0 for no header")
@@ -106,6 +110,9 @@ with open(filename, 'r') as f:
             row_data = [ maybe_munge(j, rows[i][j]) for j in cols ]
             if end_row == "blank" and "".join(row_data) == "":
                 break
+            
+            if options.extra_col:
+                row_data.append(options.extra_col)
             
             w.writerow(row_data)
             
