@@ -318,6 +318,9 @@ def main():
         except:
             parser.error("Output filename '%s' does not contain a %%d template" % (options.output,))
     
+    if options.overlay_on and options.cairo:
+        parser.error("The --overlay-on option is only allowed in --pil mode")
+    
     AsPNG(options=options).render_map()
 
 main()
