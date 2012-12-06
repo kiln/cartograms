@@ -67,7 +67,7 @@ class AsPNG(object):
         return psycopg2.connect(" ".join(db_connection_data))
     
     def _parse_colour(self, colour_string):
-        if colour_string is None:
+        if colour_string == "None":
             return None
         r, g, b = int(colour_string[0:2], 16), int(colour_string[2:4], 16), int(colour_string[4:6], 16)
         return r/0xFF, g/0xFF, b/0xFF
