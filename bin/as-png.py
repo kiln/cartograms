@@ -63,7 +63,7 @@ class AsPNG(object):
                 c.execute("""
                     select region.name
                              , ST_AsEWKB(ST_Simplify(ST_Transform(region.the_geom, %(srid)s), %(simplification)s)) g
-                             , false
+                             , true
                     from region
                     where region.division_id = %(division_id)s
                 """, {
