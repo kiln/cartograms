@@ -31,6 +31,29 @@ class AsPNG(object):
         self.fill_colour = self._parse_colour(options.fill_colour)
         self.fill_colour_no_data = self._parse_colour(options.fill_colour_no_data)
         self.stroke_colour = self._parse_colour(options.stroke_colour)
+        
+        # If width and height are both specified, use them
+        if options.width and options.height:
+            self.output_width = options.width
+            self.output_height = options.height
+        
+        # If only one of them is specified, retain the aspect ratio
+        # of the map as defined in the database.
+        elif options.width:
+            self.output_width = options.width
+            ratio = self.m.height / self.m.width
+            self.output_height = int(round(options.width * ratio))
+        
+        elif options.height:
+            self.output_height = options.height
+            ratio = self.m.width / self.m.height
+            self.output_width = int(round(options.height * ratio))
+        
+        # If neither is specified, use the dimensions of the map
+        # as defined in the database.
+        else:
+            self.output_width = self.m.width
+            self.output_width = self.m.height
     
     def _parse_colour(self, colour_string):
         if colour_string is None:
@@ -112,8 +135,8 @@ class AsPNG(object):
             if self.interpolator:
                 x, y = self.interpolator(x, y, slide)
             polygon_coords.append((
-                (x - self.m.x_min) * self.m.width / (self.m.x_max - self.m.x_min),
-                self.m.height - (y - self.m.y_min) * self.m.height / (self.m.y_max - self.m.y_min),
+                (x - self.m.x_min) * self.output_width / (self.m.x_max - self.m.x_min),
+                self.output_height - (y - self.m.y_min) * self.output_height / (self.m.y_max - self.m.y_min),
             ))
             
         self.draw.polygon(polygon_coords, outline=self.stroke_colour, fill=fill_colour)
@@ -168,18 +191,18 @@ class AsPNG(object):
             self.render_frame(1.0, self.out)
     
     def render_frame_cairo(self, slide, output_file):
-        surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.m.width, self.m.height)
+        surface = cairo.ImageSurface(cairo.FORMAT_RGB24, self.output_width, self.output_height)
         self.c = cairo.Context(surface)
         
-        self.c.rectangle(0,0, self.m.width, self.m.height)
+        self.c.rectangle(0,0, self.output_width, self.output_height)
         self.c.set_source_rgb(0x9e/0xff, 0xc7/0xff, 0xf3/0xff)
         self.c.fill()
 
         self.c.transform(cairo.Matrix(
-            self.m.width / (self.m.x_max - self.m.x_min), 0,
-            0, - self.m.height / (self.m.y_max - self.m.y_min),
-            -self.m.x_min * self.m.width / (self.m.x_max - self.m.x_min),
-            self.m.y_max * self.m.height / (self.m.y_max - self.m.y_min),
+            self.output_width / (self.m.x_max - self.m.x_min), 0,
+            0, - self.output_height / (self.m.y_max - self.m.y_min),
+            -self.m.x_min * self.output_width / (self.m.x_max - self.m.x_min),
+            self.m.y_max * self.output_height / (self.m.y_max - self.m.y_min),
         ))
         self.c.set_line_width(self.options.stroke_width)
 
@@ -194,7 +217,7 @@ class AsPNG(object):
         if self.options.overlay_on:
             image = PIL.Image.open(self.options.overlay_on)
         else:
-            image = PIL.Image.new("RGB", (self.m.width, self.m.height), None)
+            image = PIL.Image.new("RGB", (self.output_width, self.output_height), None)
         
         self.draw = PIL.ImageDraw.Draw(image)
         
@@ -270,6 +293,13 @@ def main():
     parser.add_option("", "--stroke-width",
                       action="store", default=2000, type="int",
                       help="width of strokes (default %default)")
+    
+    parser.add_option("", "--width",
+                      action="store", type="int",
+                      help="width of output image")
+    parser.add_option("", "--height",
+                      action="store", type="int",
+                      help="height of output image")
     
     (options, args) = parser.parse_args()
     if args:
