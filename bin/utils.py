@@ -28,6 +28,7 @@ class Map(object):
 class Interpolator(object):
   """
   Linear interpolation for cartogram grids.
+  You should use FastInterpolator instead, if at all possible.
   """
   def __init__(self, grid_filename, the_map):
     self.m = the_map
