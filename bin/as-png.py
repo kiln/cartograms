@@ -16,7 +16,7 @@ import utils
 class AsPNG(object):
     def __init__(self, options):
         self.options = options
-        self.db = psycopg2.connect("host=localhost")
+        self.db = self.db_connect()
         self.m = utils.Map(self.db, options.map)
         if options.cart:
             self.interpolator = utils.Interpolator(options.cart, self.m)
@@ -54,6 +54,17 @@ class AsPNG(object):
         else:
             self.output_width = self.m.width
             self.output_width = self.m.height
+    
+    def db_connect(self):
+        options = self.options
+        db_connection_data = []
+        if options.db_host:
+            db_connection_data.append("host=" + options.db_host)
+        if options.db_name:
+            db_connection_data.append(" dbname=" + options.db_name)
+        if options.db_user:
+            db_connection_data.append(" user=" + options.db_user)
+        return psycopg2.connect(" ".join(db_connection_data))
     
     def _parse_colour(self, colour_string):
         if colour_string is None:
@@ -236,6 +247,18 @@ class AsPNG(object):
 def main():
     global options
     parser = optparse.OptionParser()
+    # Database connection options:
+    parser.add_option("", "--db-host",
+                    action="store",
+                    default="localhost",
+                    help="database hostname (default %default)")
+    parser.add_option("", "--db-name",
+                    action="store",
+                    help="database name")
+    parser.add_option("", "--db-user",
+                    action="store",
+                    help="database username")
+
     parser.add_option("", "--map",
                       action="store",
                       help="the name of the map to use")
