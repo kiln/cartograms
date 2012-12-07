@@ -28,7 +28,7 @@ class ListRegions(object):
         # should be specified.
         parser.add_option("", "--division",
                         action="store",
-                        help="or the name of the division")
+                        help="the name of the division")
         parser.add_option("", "--map",
                         action="store",
                         help="or the name of the map")
@@ -60,10 +60,13 @@ class ListRegions(object):
         if number_of_specs > 1:
             parser.error("You may specify only one of --division, --map and --dataset")
         
-        self.options = options
+        return options
     
-    def __init__(self):
-        self.parse_args()
+    def __init__(self, options=None):
+        if options is None:
+            self.options = self.parse_args()
+        else:
+            self.options = options
         self.db = self.db_connect()
         self.division_id = self.get_division_id()
     
@@ -136,10 +139,14 @@ class ListRegions(object):
         return self.simple_query(
             "select division_id from dataset where name = %s", dataset_name,
             error="No such dataset: " + dataset_name)
+    
+    def print_regions(self):
+        for region_name in self.region_names():
+            if self.options.zero:
+                sys.stdout.write(region_name + "\0")
+            else:
+                print region_name
 
-list_regions = ListRegions()
-for region_name in list_regions.region_names():
-    if list_regions.options.zero:
-        sys.stdout.write(region_name + "\0")
-    else:
-        print region_name
+
+if __name__ == "__main__":
+    ListRegions().print_regions()
