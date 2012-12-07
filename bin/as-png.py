@@ -9,7 +9,7 @@ import sys
 
 import cairo
 import PIL.Image, PIL.ImageDraw
-import shapely.wkb
+import shapely.geometry, shapely.wkb
 import psycopg2
 
 import utils
@@ -34,10 +34,16 @@ class AsPNG(object):
         self.stroke_colour = self._parse_colour(options.stroke_colour)
         self.background_colour = self._parse_colour(options.background_colour)
         
+        if options.srid:
+            self.srid = options.srid
+        else:
+            self.srid = self.m.srid
+        
         if options.region:
             bounds = self.region_bounds(options.region)
             self.x_min, self.y_min, self.x_max, self.y_max = bounds
         else:
+            # TODO if --srid is specified then this is wrong
             self.x_min = self.m.x_min
             self.x_max = self.m.x_max
             self.y_min = self.m.y_min
@@ -109,7 +115,7 @@ class AsPNG(object):
                     and division_id = %(division_id)s
                 ) x
             """, {
-                "srid": self.m.srid,
+                "srid": self.srid,
                 "division_id": self.m.division_id,
                 "region_name": region_name
             })
@@ -121,7 +127,7 @@ class AsPNG(object):
         c = self.db.cursor()
         try:
             params = {
-                "srid": self.m.srid,
+                "srid": self.srid,
                 "simplification": self.options.simplification,
                 "dataset_name": self.options.dataset,
                 "division_id": self.m.division_id,
@@ -157,11 +163,28 @@ class AsPNG(object):
             for iso2, g, has_data in c.fetchall():
                 fill_colour = self.fill_colour if has_data else self.fill_colour_no_data
                 p = shapely.wkb.loads(str(g))
+                if self.options.omit_small_islands:
+                    p = self.omit_small_islands(p)
                 self.render_multipolygon(p, fill_colour, slide)
-                    
+                
         finally:
             c.close()
-
+    
+    def omit_small_islands(self, multipolygon):
+        max_area = max([ polygon.area for polygon in multipolygon.geoms ])
+        nonsmall_islands = [
+            polygon for polygon in multipolygon.geoms
+            if polygon.area > 0.05 * max_area
+        ]
+        if nonsmall_islands:
+            multipolygon = shapely.geometry.MultiPolygon(nonsmall_islands)
+            if self.options.region:
+                # If we are mapping just one region, we may need to adjust the bounds
+                # now we have removed small islands
+                self.x_min, self.y_min, self.x_max, self.y_max = multipolygon.bounds
+        
+        return multipolygon
+    
     def render_polygon_ring_cairo(self, ring, fill_colour=None, slide=1.0):
         if fill_colour is None:
             fill_colour = self.fill_colour
@@ -225,7 +248,7 @@ class AsPNG(object):
         c.execute("""
             with t as (select ST_Transform(location, %s) p from {table_name})
             select ST_X(t.p), ST_Y(t.p) from t
-        """.format(table_name=self.options.circles), (self.m.srid,) )
+        """.format(table_name=self.options.circles), (self.srid,) )
         
         r,g,b = self.circle_fill_colour
         self.c.set_source_rgba(r,g,b, self.options.circle_opacity)
@@ -392,6 +415,12 @@ def main():
     parser.add_option("", "--region",
                       action="store",
                       help="map just the specified region")
+    parser.add_option("", "--srid",
+                      action="store", type=int,
+                      help="override the map's SRID with the specified one")
+    parser.add_option("", "--omit-small-islands",
+                      action="store_true", default=False,
+                      help="omit any regions that are less than 5% the size of the largest land mass")
     
     (options, args) = parser.parse_args()
     if args:
