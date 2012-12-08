@@ -40,8 +40,8 @@ class AsPNG(object):
             self.srid = self.m.srid
         
         if options.region:
-            bounds = self.region_bounds(options.region)
-            self.x_min, self.y_min, self.x_max, self.y_max = bounds
+            region_name, p, has_data = self.region_paths().next()
+            self.x_min, self.y_min, self.x_max, self.y_max = p.bounds
         else:
             # TODO if --srid is specified then this is wrong
             self.x_min = self.m.x_min
@@ -102,28 +102,12 @@ class AsPNG(object):
         r, g, b = int(colour_string[0:2], 16), int(colour_string[2:4], 16), int(colour_string[4:6], 16)
         return r/0xFF, g/0xFF, b/0xFF
 
-    def region_bounds(self, region_name):
-        c = self.db.cursor()
-        try:
-            c.execute("""
-                select ST_XMin(x.box), ST_YMin(x.box)
-                     , ST_XMax(x.box), ST_YMax(x.box)
-                from (
-                    select Box2D(ST_Transform(region.the_geom, %(srid)s)) as box
-                    from region
-                    where name = %(region_name)s
-                    and division_id = %(division_id)s
-                ) x
-            """, {
-                "srid": self.srid,
-                "division_id": self.m.division_id,
-                "region_name": region_name
-            })
-            return c.fetchone()
-        finally:
-            c.close()
-    
     def render_region_paths(self, slide):
+        for region_name, p, has_data in self.region_paths():
+            fill_colour = self.fill_colour if has_data else self.fill_colour_no_data
+            self.render_multipolygon(p, fill_colour, slide)
+    
+    def region_paths(self):
         c = self.db.cursor()
         try:
             params = {
@@ -160,12 +144,11 @@ class AsPNG(object):
             
             c.execute(sql, params)
             
-            for iso2, g, has_data in c.fetchall():
-                fill_colour = self.fill_colour if has_data else self.fill_colour_no_data
+            for region_name, g, has_data in c:
                 p = shapely.wkb.loads(str(g))
                 if self.options.omit_small_islands:
                     p = self.omit_small_islands(p)
-                self.render_multipolygon(p, fill_colour, slide)
+                yield region_name, p, has_data
                 
         finally:
             c.close()
@@ -178,10 +161,6 @@ class AsPNG(object):
         ]
         if nonsmall_islands:
             multipolygon = shapely.geometry.MultiPolygon(nonsmall_islands)
-            if self.options.region:
-                # If we are mapping just one region, we may need to adjust the bounds
-                # now we have removed small islands
-                self.x_min, self.y_min, self.x_max, self.y_max = multipolygon.bounds
         
         return multipolygon
     
