@@ -7,6 +7,7 @@ Takes two CSV files: the first is the shading spec, and the second the region da
 """
 
 import csv
+import json
 import optparse
 import sys
 
@@ -105,6 +106,9 @@ def main():
     parser.add_option("", "--id-prefix",
                       action="store", default="",
                       help="prefix for the CSS id")
+    parser.add_option("", "--json",
+                      action="store_true", default=False,
+                      help="produce output in JSON format, not CSS")
     parser.add_option("", "--shading",
                       action="store",
                       help="the name of the file containing the shading spec")
@@ -122,6 +126,23 @@ def main():
     
     shading_spec = load_shading_spec(options.shading)
     shades = load_data(options.data, shading_spec)
+    
+    if options.json:
+        def _decodeColor(color_string):
+            if color_string.startswith("#"):
+                if len(color_string) != 7:
+                    raise Exception("Unsupported colour format: " + color_string)
+                return int(color_string[1:], 16)
+            else:
+                return color_string
+        json.dump(
+        dict((
+                (region_key, _decodeColor(color))
+                for color, region_keys in shades.iteritems()
+                for region_key in region_keys
+            )),
+            sys.stdout)
+        return
     
     def munge(region_key):
         k = region_key
