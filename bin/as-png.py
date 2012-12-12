@@ -256,8 +256,8 @@ class AsPNG(object):
     def render_frame_cairo(self, slide, output_file):
         surface = cairo.ImageSurface(
             cairo.FORMAT_ARGB32,
-            self.output_width + self.options.stroke_width,
-            self.output_height + self.options.stroke_width,
+            self.output_width,
+            self.output_height,
         )
         self.c = cairo.Context(surface)
 
@@ -269,8 +269,8 @@ class AsPNG(object):
         stroke_width = self.options.stroke_width
         input_width = self.x_max - self.x_min
         input_height = self.y_max - self.y_min
-        width_ratio = self.output_width / input_width
-        height_ratio = self.output_height / input_height
+        width_ratio = (self.output_width - self.options.stroke_width) / input_width
+        height_ratio = (self.output_height - self.options.stroke_width) / input_height
         mean_ratio = (width_ratio + height_ratio) / 2
         self.c.transform(cairo.Matrix(
             width_ratio, 0, 0, -height_ratio,
