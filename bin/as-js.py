@@ -57,21 +57,22 @@ class MultipolygonSimplifier(object):
     prev = None
     ret = []
     for segment in self._segments(ring.coords, breakpoints):
-      ls = LineString(segment)
-      ls = ls.simplify(tolerance=simplification / self._max_stretch(segment), preserve_topology=False)
+      max_stretch = self._max_stretch(segment)
+      ls = LineString(segment).simplify(tolerance=simplification / max_stretch, preserve_topology=False)
+      max_segment_length = None if self.max_segment_length is None else self.max_segment_length / max_stretch
       
       for coord in ls.coords:
         if coord != prev:
           
-          if self.max_segment_length and prev:
+          if max_segment_length and prev:
             d = self._distance(prev, coord)
-            if d > self.max_segment_length:
-              fraction = self.max_segment_length / d
+            if d > max_segment_length:
+              fraction = max_segment_length / d
               dx, dy = (coord[0]-prev[0])*fraction, (coord[1]-prev[1])*fraction
-              while d > self.max_segment_length:
+              while d > max_segment_length:
                 prev = (prev[0] + dx, prev[1] + dy)
                 ret.append(prev)
-                d -= self.max_segment_length
+                d -= max_segment_length
           
           ret.append(coord)
         
