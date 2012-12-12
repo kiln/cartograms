@@ -32,11 +32,12 @@ class SimplifiedMultipolygon(object):
     self.geoms = geoms
 
 class MultipolygonSimplifier(object):
-  def __init__(self, simplification_dict, simplification, interpolators, raw_key):
+  def __init__(self, simplification_dict, simplification, interpolators, raw_key, max_segment_length):
     self.simplification_dict = simplification_dict
     self.simplification = simplification
     self.interpolators = interpolators
     self.raw_key = raw_key
+    self.max_segment_length = None if max_segment_length is None else float(max_segment_length)
   
   def simplify(self, region_name, multipolygon, breakpoints):
     return [
@@ -61,7 +62,19 @@ class MultipolygonSimplifier(object):
       
       for coord in ls.coords:
         if coord != prev:
+          
+          if self.max_segment_length and prev:
+            d = self._distance(prev, coord)
+            if d > self.max_segment_length:
+              fraction = self.max_segment_length / d
+              dx, dy = (coord[0]-prev[0])*fraction, (coord[1]-prev[1])*fraction
+              while d > self.max_segment_length:
+                prev = (prev[0] + dx, prev[1] + dy)
+                ret.append(prev)
+                d -= self.max_segment_length
+          
           ret.append(coord)
+        
         prev = coord
     
     return SimplifiedPolygonRing(ret)
@@ -81,9 +94,12 @@ class MultipolygonSimplifier(object):
   
   def _segment_length(self, segment):
     return sum([
-      math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
-      for (x1, y1), (x2, y2) in zip(segment, segment[1:])
+      self._distance(p1, p2)
+      for p1, p2 in zip(segment, segment[1:])
     ])
+  
+  def _distance(self, (x1,y1), (x2,y2)):
+    return math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1))
   
   def _max_stretch(self, segment):
     l = self._segment_length(segment)
@@ -166,21 +182,36 @@ class AsJSON(object):
         simplification=self.options.simplification,
         interpolators=self.interpolators,
         raw_key=self.options.raw_key,
+        max_segment_length=self.options.segmentize,
     )
     
     c = self.db.cursor()
     try:
-      c.execute("""
-        select region.id
-             , region.name
-             , ST_AsEWKB(ST_Transform(region.the_geom, %(srid)s)) geom_wkb
-             , ST_AsEWKB(ST_Transform(region.breakpoints, %(srid)s)) breakpoints_wkb
-        from region
-        where region.division_id = %(division_id)s
-      """, {
-          "srid": self.m.srid,
-          "division_id": self.m.division_id
-      })
+      if self.options.segmentize:
+        c.execute("""
+          select region.id
+               , region.name
+               , ST_AsEWKB(ST_Segmentize(ST_Transform(region.the_geom, %(srid)s), %(max_length)s)) geom_wkb
+               , ST_AsEWKB(ST_Transform(region.breakpoints, %(srid)s)) breakpoints_wkb
+          from region
+          where region.division_id = %(division_id)s
+        """, {
+            "srid": self.m.srid,
+            "division_id": self.m.division_id,
+            "max_length": self.options.segmentize,
+        })
+      else:
+        c.execute("""
+          select region.id
+               , region.name
+               , ST_AsEWKB(ST_Transform(region.the_geom, %(srid)s)) geom_wkb
+               , ST_AsEWKB(ST_Transform(region.breakpoints, %(srid)s)) breakpoints_wkb
+          from region
+          where region.division_id = %(division_id)s
+        """, {
+            "srid": self.m.srid,
+            "division_id": self.m.division_id,
+        })
       
       for region_id, region_name, geom_wkb, breakpoints_wkb in c:
         geom = shapely.wkb.loads(str(geom_wkb))
@@ -314,6 +345,10 @@ def main():
   parser.add_option("", "--simplification-json",
                     action="store",
                     help="A JSON-encoded dict of region name => simplification")
+  
+  parser.add_option("", "--segmentize",
+                    action="store", default=None, type="float",
+                    help="max length of path segments (default is not to segment at all)")
   
   parser.add_option("", "--format",
                     action="store",
