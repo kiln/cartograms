@@ -67,7 +67,7 @@ def main():
                 except IndexError:
                     return ""
             if key_v not in rows:
-                rows[key_v] = [ "" for column in columns ]
+                rows[key_v] = [ "" for i in range(len(columns) - len(values)) ]
             else:
                 unmatched_keys.remove(key_v)
             rows[key_v] += [ v(value) for value in values ]
