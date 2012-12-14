@@ -104,6 +104,8 @@ class AsPNG(object):
 
     def render_region_paths(self, slide):
         for region_name, p, has_data in self.region_paths():
+            if region_name in self.options.exclude_regions:
+                continue
             fill_colour = self.fill_colour if has_data else self.fill_colour_no_data
             self.render_multipolygon(p, fill_colour, slide)
     
@@ -400,6 +402,9 @@ def main():
     parser.add_option("", "--omit-small-islands",
                       action="store_true", default=False,
                       help="omit any regions that are less than 5% the size of the largest land mass")
+    parser.add_option("", "--exclude-region",
+                      action="append", dest="exclude_regions", default=[],
+                      help="name of region to exclude. Can be used more than once")
     
     (options, args) = parser.parse_args()
     if args:
