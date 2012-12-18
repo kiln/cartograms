@@ -18,6 +18,9 @@ parser.add_option("", "--db-user",
                 action="store",
                 help="database username")
 
+parser.add_option("", "--print-loaded-rows-to",
+                help="print loaded rows to this file")
+
 (options, args) = parser.parse_args()
 dataset_name, csv_filename, division_name, region_col, value_col = args
 
@@ -32,11 +35,21 @@ db = psycopg2.connect(" ".join(db_connection_data))
 
 
 def each(filename):
+    global current_row, w
+    
     f = open(filename, 'r')
     r = csv.reader(f)
     
+    if options.print_loaded_rows_to:
+        g = open(options.print_loaded_rows_to, 'w')
+        w = csv.writer(g)
+    else:
+        w = None
+    
     header = r.next()
+    if w: w.writerow(header)
     for row in r:
+        current_row = row
         yield dict(zip(header, [x.decode("utf-8") for x in row]))
     
     f.close()
@@ -84,5 +97,7 @@ for t in as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, C
     )
     if c.rowcount == 0:
         print >>sys.stderr, "Region '{division_name}/{region_name}' not found in database".format(division_name=t[2], region_name=t[3])
+    elif w:
+        w.writerow(current_row)
     c.close()
 db.commit()
