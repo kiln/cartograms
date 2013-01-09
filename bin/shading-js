@@ -4,20 +4,32 @@ import cgi
 import codecs
 import csv
 import json
+import optparse
 import sys
 
 import markdown
 
 def main():
-    key, md_filename, shading_spec_filename = sys.argv[1:]
-    
-    md_file = codecs.open(md_filename, mode="r", encoding="utf8")
-    md_text = md_file.read()
+    parser = optparse.OptionParser()
+    parser.add_option("", "--shading",
+                      action="store",
+                      help="the name of the file containing the shading spec")
+    parser.add_option("", "--blurb",
+                      action="store",
+                      help="the name of the Markdown file containing the blurb (optional)")
+    (options, args) = parser.parse_args()
+    if args:
+        parser.error("Unexpected non-option arguments")
+    if not options.shading:
+        parser.error("The --shading argument must be supplied")
     
     key_html = u""
-    key_html += u"""<div id="legendtext">"""+ markdown.markdown(md_text) +"""</div>\n"""
+    if options.blurb:
+        md_file = codecs.open(options.blurb, mode="r", encoding="utf8")
+        md_text = md_file.read()
+        key_html += u"""<div id="legendtext">"""+ markdown.markdown(md_text) +"""</div>\n"""
     
-    with open(shading_spec_filename, 'r') as shading_spec_file:
+    with open(options.shading, 'r') as shading_spec_file:
         r = csv.reader(shading_spec_file)
         header = r.next()
         value_col_name = header[0]
