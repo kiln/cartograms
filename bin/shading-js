@@ -17,17 +17,29 @@ def main():
     parser.add_option("", "--blurb",
                       action="store",
                       help="the name of the Markdown file containing the blurb (optional)")
+    parser.add_option("", "--format",
+                      action="store", default="html", choices=["html", "array"])
     (options, args) = parser.parse_args()
     if args:
         parser.error("Unexpected non-option arguments")
     if not options.shading:
         parser.error("The --shading argument must be supplied")
     
-    key_html = u""
     if options.blurb:
         md_file = codecs.open(options.blurb, mode="r", encoding="utf8")
         md_text = md_file.read()
-        key_html += u"""<div id="legendtext">"""+ markdown.markdown(md_text) +"""</div>\n"""
+        html_text = markdown.markdown(md_text)
+        if options.format == "html":
+            result = u"""<div id="legendtext">"""+ html_text +"""</div>\n"""
+        else:
+            shadings = []
+            result = [html_text, shadings]
+    else:
+        if options.format == "html":
+            result = u""
+        else:
+            shadings = []
+            result = [null, shadings]
     
     with open(options.shading, 'r') as shading_spec_file:
         r = csv.reader(shading_spec_file)
@@ -37,9 +49,12 @@ def main():
             raise Exception("Expected header to be %r, but found %r" % ([value_col_name, "color", "key"], header))
         
         for range_str, color, key in r:
-            key_html += u"""  <div class="legendswatch" style="background: {color};"></div><div class="legendtext">{key}</div>""".format(color=color, key=cgi.escape(key.decode("utf-8")))
+            if options.format == "html":
+                key_html += u"""  <div class="legendswatch" style="background: {color};"></div><div class="legendtext">{key}</div>""".format(color=color, key=cgi.escape(key.decode("utf-8")))
+            else:
+                shadings.append([color, key])
     
-    json.dump(key_html, sys.stdout)
+    json.dump(result, sys.stdout)
 
 if __name__ == "__main__":
     main()
