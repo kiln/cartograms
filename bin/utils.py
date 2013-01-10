@@ -17,9 +17,12 @@ class Map(object):
       from map
       where name = %s
     """, (map_name,))
-    map_id, division_id, srid, width, height, x_min, x_max, y_min, y_max = c.fetchone()
+    row = c.fetchone()
+    if row is None:
+        raise Exception("No such map: " + map_name)
     c.close()
     
+    map_id, division_id, srid, width, height, x_min, x_max, y_min, y_max = row
     self.map_id, self.division_id, self.srid = map_id, division_id, srid
     self.width, self.height = width, height
     self.x_min, self.y_min, self.x_max, self.y_max = map(float, (x_min, y_min, x_max, y_max))

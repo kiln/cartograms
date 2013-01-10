@@ -1,8 +1,25 @@
 #!/usr/bin/python
+# -*- encoding: utf-8 -*-
 
 import csv
+import optparse
 import sys
 import yaml
+
+"""
+Join a series of CSV files on a shared key.
+
+Reads configuration from stdin, in YAML format as follows:
+
+- key: the name of the key column
+  header: a boolean – whether or not to include a header row in the output
+  files:
+  - file: filename.csv
+    key: the name of the key column in this file (if different from the globally specified one)
+    values: an array of column names: the columns to include in the output
+  - file: second-filename.csv
+    etc.
+"""
 
 def fail(fmt, **kwargs):
     print >>sys.stderr, fmt.format(**kwargs)
@@ -11,9 +28,8 @@ def fail(fmt, **kwargs):
 def main():
     conf = yaml.load(sys.stdin.read())
     
-    rows = set()
+    rows = {} # key => [values]
     columns = []
-    entries = {} # (column, row) => value
     
     for i, f in enumerate(conf["files"]):
         csv_filename = f["file"]
@@ -41,17 +57,23 @@ def main():
         for value in values:
             check(value)
         
+        unmatched_keys = set(rows.keys())
         for row in csv_r:
             row = [x.decode("utf-8") for x in row]
             key_v = row[index_by_column_name[key]]
-            rows.add(key_v)
-            
-            for value in values:
+            def v(value):
                 try:
-                    value_v = row[index_by_column_name[value]]
+                    return row[index_by_column_name[value]]
                 except IndexError:
-                    value_v = ""
-                entries[(value, key_v)] = value_v
+                    return ""
+            if key_v not in rows:
+                rows[key_v] = [ "" for i in range(len(columns) - len(values)) ]
+            else:
+                unmatched_keys.remove(key_v)
+            rows[key_v] += [ v(value) for value in values ]
+        
+        for k in unmatched_keys:
+            rows[k] += [ "" for value in values ]
         
         csv_f.close()
     
@@ -60,11 +82,8 @@ def main():
     w = csv.writer(sys.stdout)
     if conf.get("header", False):
         w.writerow([conf.get("key")] + columns)
-    for row in sorted(rows):
-        w.writerow([row] + [
-            entries.get((col, row), "").encode("utf-8")
-            for col in columns
-        ])
+    for k, row in sorted(rows.iteritems()):
+        w.writerow([ x.encode("utf-8") for x in [k] + row])
     sys.stdout.flush()
 
 main()
