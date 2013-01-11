@@ -50,7 +50,7 @@ def main():
         
         for range_str, color, key in r:
             if options.format == "html":
-                key_html += u"""  <div class="legendswatch" style="background: {color};"></div><div class="legendtext">{key}</div>""".format(color=color, key=cgi.escape(key.decode("utf-8")))
+                result += u"""  <div class="legendswatch" style="background: {color};"></div><div class="legendtext">{key}</div>""".format(color=color, key=cgi.escape(key.decode("utf-8")))
             else:
                 shadings.append([color, key])
     
