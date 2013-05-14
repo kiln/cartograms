@@ -56,3 +56,22 @@ insert into map (
 
 select populate_grid('world-eckert-iv');
 select grid_set_regions('world-eckert-iv', 'countries');
+
+
+insert into map (
+  division_id,
+  name, srid,
+  x_min, x_max,
+  y_min, y_max,
+  width, height
+) (
+  select division.id,
+    'world-plate-carree', 4326,
+    -180, 180,
+    -90, 90,
+    500, 250
+  from division where division.name = 'countries'
+);
+
+select populate_grid('world-plate-carree');
+select grid_set_regions('world-plate-carree', 'countries');
