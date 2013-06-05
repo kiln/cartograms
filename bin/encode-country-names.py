@@ -7,7 +7,6 @@
 
 import csv
 import os
-import re
 import sys
 
 BASE_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
@@ -19,13 +18,17 @@ def process_file(csv_file_name,
     code_column="Alpha-2",
     write_to=sys.stdout,
     input_delimiter=',', output_delimiter=',',
-    has_header=True
+    has_header=True,
+    skip=0,
 ):
     f = open(csv_file_name, 'rU')
     r = csv.reader(f, delimiter=input_delimiter)
     if not isinstance(write_to, file):
         write_to = open(write_to, 'w')
     w = csv.writer(write_to, delimiter=output_delimiter)
+    
+    for i in range(skip):
+        r.next()
     
     if has_header:
         header = r.next()
@@ -64,6 +67,8 @@ def main():
                       help="Field delimiter for output file (default %default)")
     parser.add_option("", "--no-header", dest="has_header", action="store_false", default=True,
                       help="Input file has no header line")
+    parser.add_option("", "--skip", action="store", default=0, type="int",
+                      help="Number of initial lines to skip")
     
     options, args = parser.parse_args()
     if len(args) != 1:
@@ -74,7 +79,8 @@ def main():
         code_column=options.code_col,
         input_delimiter=options.input_delimiter,
         output_delimiter=options.output_delimiter,
-        has_header=options.has_header)
+        has_header=options.has_header,
+        skip=options.skip)
 
 if __name__ == "__main__":
     main()
