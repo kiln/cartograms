@@ -29,7 +29,15 @@ begin
              ) pt_4326
       from pregrid
       -- NB: This is only correct for pseudocylindrical projections!
-      where mx
+      --
+      -- The point is that, if we are making a map of the whole world on a
+      -- projection where the image of the world is not a rectangle, there
+      -- will be some grid points that lie outside the world. These may
+      -- cause errors or other infelicities, so we would like to exclude
+      -- them. The logic below works for pseudocylindrical projections only.
+      -- It will cause an error for regional projections such as OSGB1936
+      -- (srid 27700), so for now we just exclude them explicitly.
+      where srid=27700 or mx
         between ST_X(ST_Transform(
             ST_SetSRID(
                 ST_MakePoint(
