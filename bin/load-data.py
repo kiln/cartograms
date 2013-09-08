@@ -22,6 +22,8 @@ parser.add_option("", "--print-loaded-rows-to",
                 help="print loaded rows to this file")
 
 (options, args) = parser.parse_args()
+if len(args) != 5:
+    parser.error("Wrong number of arguments")
 dataset_name, csv_filename, division_name, region_col, value_col = args
 
 db_connection_data = []
