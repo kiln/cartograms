@@ -71,24 +71,23 @@ if options.rank:
     # We want to return the rank, in exam format: supposing the values
     # are {"A": 10, "B": 20, "C": 20, "D": 25} then the ranks should be
     # {"A": "1", "B": "2=", "C": "2=", "D": 3}.
+    #
+    # The file data/rank-test.csv may be used to test it.
     sorted_rows = sorted(rows, key=lambda (key, value): value, reverse=options.desc)
     
-    rank = 1
+    rank = 0
     d = {}
     for i in range(len(sorted_rows)):
         key, value = sorted_rows[i]
-        suffix = ""
-        if i > 0:
-            prev_value = sorted_rows[i-1][1]
-            if prev_value == value:
-                suffix = "="
-        if i < len(sorted_rows) - 1:
-            next_value = sorted_rows[i+1][1]
-            if next_value == value:
-                suffix = "="
         
-        if suffix == "":
-            rank = i + 1
+        suffix = ""
+        if i > 0 and value == sorted_rows[i-1][1]:
+            suffix = "="
+        else:
+            rank += 1
+        
+        if i < len(sorted_rows) - 1 and value == sorted_rows[i+1][1]:
+            suffix = "="
         
         d[key] = str(rank) + suffix
     
