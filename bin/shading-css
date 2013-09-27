@@ -86,6 +86,12 @@ def load_data(data_filename, shading_spec):
                 # Ignore blank values
                 continue
             
+            try:
+                float(value)
+            except ValueError:
+                print >>sys.stderr, "Ignoring non-numeric value: " + value
+                continue
+            
             for shade_range, color in shades:
                 if float(value) in shade_range:
                     region_shades.setdefault(color, []).append(region_key)

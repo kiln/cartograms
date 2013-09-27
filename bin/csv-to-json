@@ -62,11 +62,14 @@ header = r.next()
 key_index = header.index(options.key)
 value_index = header.index(options.value)
 
-rows = ((
-    (row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")))
-    for row in r
-    if row[key_index] != options.exclude
-))
+rows = []
+for row in r:
+    if row[key_index] != options.exclude:
+        try:
+            rows.append(( row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")) ))
+        except ValueError, e:
+            print >>sys.stderr, "Ignoring bad value: " + str(e)
+
 if options.rank:
     # We want to return the rank, in exam format: supposing the values
     # are {"A": 10, "B": 20, "C": 20, "D": 25} then the ranks should be
