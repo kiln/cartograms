@@ -22,6 +22,8 @@ parser.add_option("", "--print-loaded-rows-to",
                 help="print loaded rows to this file")
 
 (options, args) = parser.parse_args()
+if len(args) != 5:
+    parser.error("Wrong number of arguments")
 dataset_name, csv_filename, division_name, region_col, value_col = args
 
 db_connection_data = []
@@ -79,25 +81,34 @@ c.close()
 for t in as_seq(each(csv_filename), dataset_id, Col(value_col), division_name, Col(region_col)):
     c = db.cursor()
     if not t[1]:
-      print >>sys.stderr, "Skipping '%s', because the value is blank" % (t[3],)
-      continue
-    c.execute("""
-            insert into data_value (
-                dataset_id,
-                division_id,
-                region_id,
-                value
-            ) (
-                select %s, division.id, region.id, GREATEST(0, %s::numeric)
-                from region
-                join division on region.division_id = division.id
-                where division.name = %s and region.name = %s
-            )
-        """, t
-    )
-    if c.rowcount == 0:
-        print >>sys.stderr, "Region '{division_name}/{region_name}' not found in database".format(division_name=t[2], region_name=t[3])
-    elif w:
-        w.writerow(current_row)
-    c.close()
+        print >>sys.stderr, "Skipping '%s', because the value is blank" % (t[3],)
+        continue
+    
+    try:
+        float(t[1])
+    except ValueError:
+        print >>sys.stderr, "Skipping '%s', because the value is bad: %s" % (t[3], t[1])
+        continue
+    
+    try:
+        c.execute("""
+                insert into data_value (
+                    dataset_id,
+                    division_id,
+                    region_id,
+                    value
+                ) (
+                    select %s, division.id, region.id, GREATEST(0, %s::numeric)
+                    from region
+                    join division on region.division_id = division.id
+                    where division.name = %s and region.name = %s
+                )
+            """, t
+        )
+        if c.rowcount == 0:
+            print >>sys.stderr, "Region '{division_name}/{region_name}' not found in database".format(division_name=t[2], region_name=t[3])
+        elif w:
+            w.writerow(current_row)
+    finally:
+        c.close()
 db.commit()

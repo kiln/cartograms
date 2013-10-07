@@ -2,6 +2,9 @@
 
 -- $ shp2pgsql -W LATIN1 -s 4326 TM_WORLD_BORDERS-0/TM_WORLD_BORDERS-0.3.shp country | psql
 
+-- http://spatialreference.org/ref/esri/54030/postgis/
+-- INSERT into spatial_ref_sys (srid, auth_name, auth_srid, proj4text, srtext) values ( 954030, 'esri', 54030, '+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs ', 'PROJCS["World_Robinson",GEOGCS["GCS_WGS_1984",DATUM["WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]],PROJECTION["Robinson"],PARAMETER["False_Easting",0],PARAMETER["False_Northing",0],PARAMETER["Central_Meridian",0],UNIT["Meter",1],AUTHORITY["EPSG","54030"]]');
+
 insert into division (name) values ('countries');
 insert into region (division_id, name, the_geom, area) (
     select currval('division_id_seq'), iso2, the_geom, ST_Area(the_geom) from country

@@ -30,6 +30,10 @@ parser.add_option("", "--ignore-region",
                 action="store",
                 help="the name of a region to ignore")
 
+parser.add_option("", "--no-padding",
+                action="store_true",
+                help="do not pad the grid with a mean-density border")
+
 parser.add_option("", "--db-host",
                 action="store",
                 default="localhost",
@@ -157,13 +161,19 @@ def d(x, y):
   else:
     return v
 
-padding = " ".join(["%.5f" % (global_density)] * X)
-for y in range(Y):
-    print padding, padding, padding
-for y in range(Y):
-    print padding, (" ".join(["%.5f"] * X)) % tuple((
-      d(x, y) for x in range(X)
-    )), padding
-for y in range(Y):
-    print padding, padding, padding
+if options.no_padding:
+    for y in range(Y):
+        print (" ".join(["%.5f"] * X)) % tuple((
+          d(x, y) for x in range(X)
+        ))
+else:
+    padding = " ".join(["%.5f" % (global_density)] * X)
+    for y in range(Y):
+        print padding, padding, padding
+    for y in range(Y):
+        print padding, (" ".join(["%.5f"] * X)) % tuple((
+          d(x, y) for x in range(X)
+        )), padding
+    for y in range(Y):
+        print padding, padding, padding
 

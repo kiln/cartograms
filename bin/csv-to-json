@@ -62,35 +62,38 @@ header = r.next()
 key_index = header.index(options.key)
 value_index = header.index(options.value)
 
-rows = ((
-    (row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")))
-    for row in r
-    if row[key_index] != options.exclude
-))
+rows = []
+for row in r:
+    if row[key_index] != options.exclude:
+        try:
+            rows.append(( row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")) ))
+        except ValueError, e:
+            print >>sys.stderr, "Ignoring bad value: " + str(e)
+
 if options.rank:
     # We want to return the rank, in exam format: supposing the values
     # are {"A": 10, "B": 20, "C": 20, "D": 25} then the ranks should be
-    # {"A": "1", "B": "2=", "C": "2=", "D": 3}.
+    # {"A": "1", "B": "2=", "C": "2=", "D": 4}.
+    #
+    # The file data/rank-test.csv may be used to test it.
     sorted_rows = sorted(rows, key=lambda (key, value): value, reverse=options.desc)
     
-    rank = 1
+    real_rank, equal_rank = 0, 0
     d = {}
     for i in range(len(sorted_rows)):
         key, value = sorted_rows[i]
+        
+        real_rank += 1
         suffix = ""
-        if i > 0:
-            prev_value = sorted_rows[i-1][1]
-            if prev_value == value:
-                suffix = "="
-        if i < len(sorted_rows) - 1:
-            next_value = sorted_rows[i+1][1]
-            if next_value == value:
-                suffix = "="
+        if i > 0 and value == sorted_rows[i-1][1]:
+            suffix = "="
+        else:
+            equal_rank = real_rank
         
-        if suffix == "":
-            rank = i + 1
+        if i < len(sorted_rows) - 1 and value == sorted_rows[i+1][1]:
+            suffix = "="
         
-        d[key] = str(rank) + suffix
+        d[key] = str(equal_rank) + suffix
     
 else:
     d = dict(rows)
