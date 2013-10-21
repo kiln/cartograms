@@ -98,11 +98,21 @@ class AsSVG(object):
                   and data_value.region_id = region.id) has_data
           from region
           where region.division_id = %(division_id)s
+          and ST_Intersects(region.the_geom,
+            ST_Transform(
+              ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s),
+              4326
+            )
+          )
         """.format(simplification=self._simplification()), {
             "srid": self.m.srid,
             "simplification": self.options.simplification,
             "dataset": self.options.dataset,
-            "division_id": self.m.division_id
+            "division_id": self.m.division_id,
+            "xmin": self.m.x_min,
+            "ymin": self.m.y_min,
+            "xmax": self.m.x_max,
+            "ymax": self.m.y_max,
         })
       else:
         c.execute("""
@@ -111,9 +121,19 @@ class AsSVG(object):
                , false
           from region
           where region.division_id = %(division_id)s
+          and ST_Intersects(region.the_geom,
+            ST_Transform(
+              ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s),
+              4326
+            )
+          )
         """.format(simplification=self._simplification()), {
             "srid": self.m.srid,
-            "division_id": self.m.division_id
+            "division_id": self.m.division_id,
+            "xmin": self.m.x_min,
+            "ymin": self.m.y_min,
+            "xmax": self.m.x_max,
+            "ymax": self.m.y_max,
         })
       
       for region_name, g, has_data in c.fetchall():
