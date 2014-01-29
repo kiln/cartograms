@@ -143,6 +143,11 @@ class AsJSON(object):
       self.simplification_dict = json.loads(self.options.simplification_json)
     else:
       self.simplification_dict = {}
+    
+    if options.exclude_regions:
+      self.exclude_regions = set(shlex.split(options.exclude_regions))
+    else:
+      self.exclude_regions = set()
   
   @staticmethod
   def _extract_cart_name(cart):
@@ -215,6 +220,8 @@ class AsJSON(object):
         })
       
       for region_id, region_name, geom_wkb, breakpoints_wkb in c:
+        if region_name in self.exclude_regions:
+          continue
         geom = shapely.wkb.loads(str(geom_wkb))
         breakpoints = set() if breakpoints_wkb is None else set((
           (point.x, point.y) for point in shapely.wkb.loads(str(breakpoints_wkb))
@@ -351,6 +358,10 @@ def main():
                     action="store", default=None, type="float",
                     help="max length of path segments (default is not to segment at all)")
   
+  parser.add_option("", "--exclude-regions",
+                    action="store",
+                    help="Regions to exclude. Space-separated (shell-quoted)")
+
   parser.add_option("", "--format",
                     action="store",
                     default="js",
