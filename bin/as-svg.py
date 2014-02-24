@@ -14,8 +14,25 @@ import utils
 class AsSVG(object):
   def __init__(self, options):
     self.options = options
-    self.db = psycopg2.connect("host=localhost")
+    self.db = self.db_connect()
     self.m = utils.Map(self.db, options.map)
+    
+    if options.srid:
+      self.srid = options.srid
+    else:
+      self.srid = self.m.srid
+    
+    if options.region:
+      region_name, p, has_data = self.region_paths().next()
+      self.x_min, self.y_min, self.x_max, self.y_max = p.bounds
+    else:
+      # TODO if --srid is specified then this is wrong
+      self.x_min = self.m.x_min
+      self.x_max = self.m.x_max
+      self.y_min = self.m.y_min
+      self.y_max = self.m.y_max
+    
+    self.init_output_grid()
     if options.cart:
       self.f = utils.Interpolator(options.cart, self.m)
     else:
@@ -31,6 +48,45 @@ class AsSVG(object):
     else:
       self.exclude_regions = set()
 
+  def db_connect(self):
+    options = self.options
+    db_connection_data = []
+    if options.db_host:
+      db_connection_data.append("host=" + options.db_host)
+    if options.db_name:
+      db_connection_data.append(" dbname=" + options.db_name)
+    if options.db_user:
+      db_connection_data.append(" user=" + options.db_user)
+    return psycopg2.connect(" ".join(db_connection_data))
+  
+  def init_output_grid(self):
+      aspect_ratio = (self.x_max - self.x_min) / (self.y_max - self.y_min)
+    
+      # If width and height are specified, use them
+      if self.options.output_grid:
+        mo = re.match(r"^(\d+)x(\d+)$", options.output_grid)
+        self.output_width = int(mo.group(1))
+        self.output_height = int(mo.group(2))
+      
+      elif self.options.box:
+        mo = re.match(r"^(\d+)x(\d+)$", options.box)
+        max_width, max_height = int(mo.group(1)), int(mo.group(2))
+        box_ratio = max_width / max_height
+        if box_ratio > aspect_ratio:
+          # The height is the limiting factor
+          self.output_height = max_height
+          self.output_width = int(round(max_height * aspect_ratio))
+        else:
+          # The width is the limiting factor
+          self.output_width = max_width
+          self.output_height = int(round(max_width / aspect_ratio))
+    
+      # If neither is specified, use the dimensions of the map
+      # as defined in the database.
+      else:
+        self.output_width = self.m.width
+        self.output_height = self.m.height
+  
   def print_robinson_path(self):
     c = self.db.cursor()
     try:
@@ -76,18 +132,18 @@ class AsSVG(object):
       return q(self.options.simplification)
   
   def _transform(self, x, y):
-    if not self.options.output_grid:
+    if not self.output_width:
       return x, -y
     return (
-      (x - self.m.x_min) * self.options.output_grid_width / (self.m.x_max - self.m.x_min),
-      self.options.output_grid_height - (y - self.m.y_min) * self.options.output_grid_height / (self.m.y_max - self.m.y_min),
+      (x - self.x_min) * self.output_width / (self.x_max - self.x_min),
+      self.output_height - (y - self.y_min) * self.output_height / (self.y_max - self.y_min),
     )
   
   def region_paths(self):
     c = self.db.cursor()
     try:
       if self.options.dataset:
-        c.execute("""
+        sql = """
           select region.name
                , ST_AsEWKB(ST_Simplify(ST_Transform(region.the_geom, %(srid)s), {simplification})) g
                , exists(
@@ -98,52 +154,70 @@ class AsSVG(object):
                   and data_value.region_id = region.id) has_data
           from region
           where region.division_id = %(division_id)s
-          and ST_Intersects(region.the_geom,
-            ST_Transform(
-              ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s),
-              4326
-            )
-          )
-        """.format(simplification=self._simplification()), {
-            "srid": self.m.srid,
-            "simplification": self.options.simplification,
-            "dataset": self.options.dataset,
-            "division_id": self.m.division_id,
-            "xmin": self.m.x_min,
-            "ymin": self.m.y_min,
-            "xmax": self.m.x_max,
-            "ymax": self.m.y_max,
-        })
+        """
       else:
-        c.execute("""
+        sql = """
           select region.name
                , ST_AsEWKB(ST_Simplify(ST_Transform(region.the_geom, %(srid)s), {simplification})) g
                , false
           from region
           where region.division_id = %(division_id)s
-          and ST_Intersects(region.the_geom,
+        """
+      
+      params = {
+          "srid": self.srid,
+          "simplification": self.options.simplification,
+          "division_id": self.m.division_id
+      }
+      
+      if hasattr(self, "x_min"):
+        sql += """  and ST_Intersects(region.the_geom,
             ST_Transform(
               ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s),
               4326
             )
           )
-        """.format(simplification=self._simplification()), {
-            "srid": self.m.srid,
-            "division_id": self.m.division_id,
-            "xmin": self.m.x_min,
-            "ymin": self.m.y_min,
-            "xmax": self.m.x_max,
-            "ymax": self.m.y_max,
+        """
+        
+        params.update({
+          "xmin": self.x_min,
+          "ymin": self.y_min,
+          "xmax": self.x_max,
+          "ymax": self.y_max,
         })
       
+      sql = sql.format(simplification=self._simplification())
+      
+      if self.options.dataset:
+        params["dataset"] = self.options.dataset
+      
+      if self.options.region:
+        sql += "and region.name = %(region_name)s"
+        params["region_name"] = self.options.region
+      
+      c.execute(sql, params)
+      
       for region_name, g, has_data in c.fetchall():
-        if region_name in self.exclude_regions:
+        if hasattr(self, "exclude_regions") and region_name in self.exclude_regions:
           continue
         p = shapely.wkb.loads(str(g))
+        if self.options.omit_small_islands:
+          p = self.omit_small_islands(p)
         yield region_name, p, has_data
     
     finally:
       c.close()
+  
+  def omit_small_islands(self, multipolygon):
+    max_area = max([ polygon.area for polygon in multipolygon.geoms ])
+    nonsmall_islands = [
+      polygon for polygon in multipolygon.geoms
+      if polygon.area > 0.05 * max_area
+    ]
+    if nonsmall_islands:
+      multipolygon = shapely.geometry.MultiPolygon(nonsmall_islands)
+    
+    return multipolygon
   
   def print_region_paths(self):
     for region_name, p, has_data in self.region_paths():
@@ -208,7 +282,7 @@ class AsSVG(object):
     c.execute("""
     with t as (select ST_Transform(location, %s) p from {table_name})
     select ST_X(t.p), ST_Y(t.p) from t
-    """.format(table_name=self.options.circles), (self.m.srid,) )
+    """.format(table_name=self.options.circles), (self.srid,) )
     if self.f is None:
       for x, y in c:
         print >>self.out, '<circle cx="{x:.0f}" cy="{y:.0f}" r="{r}"/>'.format(x=x, y=-y, r=self.options.circle_radius)
@@ -228,17 +302,27 @@ class AsSVG(object):
     c.close()
 
   def print_document(self):
-    if self.options.output_grid:
+    if self.output_width:
       x_min = 0
       minus_y_max = 0
-      x_extent = self.options.output_grid_width
-      y_extent = self.options.output_grid_height
+      x_extent = self.output_width
+      y_extent = self.output_height
     else:
-      x_min = self.m.x_min
-      minus_y_max = -self.m.y_max
-      x_extent = self.m.x_max-self.m.x_min
-      y_extent = self.m.y_max-self.m.y_min
+      x_min = self.x_min
+      minus_y_max = -self.y_max
+      x_extent = self.x_max-self.x_min
+      y_extent = self.y_max-self.y_min
     
+    if self.options.inline_style:
+      internal_stylesheet = self.options.inline_style
+    else:
+      internal_stylesheet = """path { fill: none; stroke: #a08070; stroke-width: %(stroke_width)s; }
+      path.no-data { fill: white; }
+      circle { fill: red; opacity: %(circle_opacity)f; }""" % {
+        "stroke_width": self.options.stroke_width,
+        "circle_opacity": self.options.circle_opacity,
+      }
+      
     if self.options.style:
       external_stylesheet = open(self.options.style, 'r').read()
     else:
@@ -247,20 +331,22 @@ class AsSVG(object):
     print >>self.out, """<?xml version="1.0" encoding="UTF-8"?>
   <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%(width)d" height="%(height)d" viewBox="%(x_min).5f %(minus_y_max).5f %(x_extent).5f %(y_extent).5f">
     <style type="text/css">
-      path { fill: none; stroke: #a08070; stroke-width: %(stroke_width)s; }
-      path.no-data { fill: white; }
-      circle { fill: red; opacity: %(circle_opacity)f; }
+      %(internal_stylesheet)s
       %(external_stylesheet)s
     </style>
-    <path id="bounds" d="M %(x_min).5f %(minus_y_max).5f h %(x_extent).5f v %(y_extent).5f h -%(x_extent).5f Z"/>
     """ % {
-      "width": self.m.width, "height": self.m.height,
       "x_min": x_min, "minus_y_max": minus_y_max,
       "x_extent": x_extent, "y_extent": y_extent,
-      "stroke_width": self.options.stroke_width,
-      "circle_opacity": self.options.circle_opacity,
+      "width": self.m.width, "height": self.m.height,
+      "internal_stylesheet": internal_stylesheet,
       "external_stylesheet": external_stylesheet,
     }
+    
+    if not self.options.no_bounds:
+      print >>self.out, """    <path id="bounds" d="M %(x_min).5f %(minus_y_max).5f h %(x_extent).5f v %(y_extent).5f h -%(x_extent).5f Z"/>""" % {
+        "x_min": x_min, "minus_y_max": minus_y_max,
+        "x_extent": x_extent, "y_extent": y_extent,
+      }
     
     if self.options.robinson:
       self.print_robinson_path()
@@ -276,6 +362,17 @@ class AsSVG(object):
 def main():
   global options
   parser = optparse.OptionParser()
+  parser.add_option("", "--db-host",
+                  action="store",
+                  default="localhost",
+                  help="database hostname (default %default)")
+  parser.add_option("", "--db-name",
+                  action="store",
+                  help="database name")
+  parser.add_option("", "--db-user",
+                  action="store",
+                  help="database username")
+  
   parser.add_option("", "--map",
                     action="store",
                     help="the name of the map to use")
@@ -309,9 +406,22 @@ def main():
                     action="store",
                     help="Regions to exclude. Space-separated (shell-quoted)")
   
+  parser.add_option("", "--region",
+                    action="store",
+                    help="map just the specified region")
+  parser.add_option("", "--srid",
+                    action="store", type=int,
+                    help="override the map's SRID with the specified one")
+  parser.add_option("", "--omit-small-islands",
+                    action="store_true", default=False,
+                    help="omit any regions that are less than 5% the size of the largest land mass")
+  
   parser.add_option("", "--output-grid",
                     action="store",
                     help="the output grid, in the form <width>x<height>")
+  parser.add_option("", "--box",
+                    action="store",
+                    help="fit image to box, e.g. 200x200")
   parser.add_option("", "--stroke-width",
                     action="store", default=2000,
                     help="width of SVG strokes (default %default)")
@@ -321,8 +431,14 @@ def main():
                     help="CSS classes to add to countries, optionally")
   parser.add_option("", "--style",
                     action="store",
-                    help="a stylesheet to embed inline, optionally")
+                    help="filename of a stylesheet to embed inline, optionally")
+  parser.add_option("", "--inline-style",
+                    action="store",
+                    help="literal styles, replacing the defaults")
 
+  parser.add_option("", "--no-bounds",
+                    action="store_true", default=False,
+                    help="Do not include a path for the map bounds")
   parser.add_option("", "--robinson",
                     action="store_true", default=False,
                     help="include the Robinson map outline")
@@ -348,6 +464,12 @@ def main():
   if not options.map:
     parser.error("Missing option --map")
   
+  if options.box:
+    if options.output_grid:
+      parser.error("You can't specify --box and --output-grid")
+    if not re.match(r"^\d+x\d+$", options.box):
+      parser.error("Failed to parse --box value: "+ options.box)
+  
   if options.json:
     if options.static:
       parser.error("--static doesn't make sense in JSON mode: JSON output is always static")
@@ -360,11 +482,8 @@ def main():
       parser.error("--robinson is not yet supported in JSON output mode")
   
   if options.output_grid:
-    mo = re.match(r"^(\d+)x(\d+)$", options.output_grid)
-    if mo is None:
+    if not re.match(r"^(\d+)x(\d+)$", options.output_grid):
       parser.error("Unrecognised value for --output-grid: " + options.output_grid)
-    setattr(options, "output_grid_width", int(mo.group(1)))
-    setattr(options, "output_grid_height", int(mo.group(2)))
   
   as_svg = AsSVG(options=options)
   if options.json:
