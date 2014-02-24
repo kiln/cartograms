@@ -42,9 +42,11 @@ begin
             ST_SetSRID(
                 ST_MakePoint(
                     -180,
-                    ST_Y(
-                        ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
-                    )
+                    greatest(-90, least(+90,
+                        ST_Y(
+                            ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                        )
+                    ))
                 ),
                 4326
             ), srid
@@ -53,9 +55,11 @@ begin
             ST_SetSRID(
                 ST_MakePoint(
                     +180,
-                    ST_Y(
-                        ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
-                    )
+                    greatest(-90, least(+90,
+                        ST_Y(
+                            ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                        )
+                    ))
                 ),
                 4326
             ), srid
