@@ -83,7 +83,7 @@ class AsPNG(object):
         # as defined in the database.
         else:
             self.output_width = self.m.width
-            self.output_width = self.m.height
+            self.output_height = self.m.height
     
     def db_connect(self):
         options = self.options
