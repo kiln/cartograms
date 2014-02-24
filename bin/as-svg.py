@@ -212,7 +212,7 @@ class AsSVG(object):
     max_area = max([ polygon.area for polygon in multipolygon.geoms ])
     nonsmall_islands = [
       polygon for polygon in multipolygon.geoms
-      if polygon.area > 0.05 * max_area
+      if polygon.area > 0.10 * max_area
     ]
     if nonsmall_islands:
       multipolygon = shapely.geometry.MultiPolygon(nonsmall_islands)
@@ -414,7 +414,7 @@ def main():
                     help="override the map's SRID with the specified one")
   parser.add_option("", "--omit-small-islands",
                     action="store_true", default=False,
-                    help="omit any regions that are less than 5% the size of the largest land mass")
+                    help="omit any regions that are less than 10% the size of the largest land mass")
   
   parser.add_option("", "--output-grid",
                     action="store",
