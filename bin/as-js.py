@@ -301,8 +301,8 @@ class AsJSON(object):
       interpolator = self.interpolators.get(k)
       for x, y in interpolator.map(ring.coords) if interpolator else ring.coords:
         x, y = self._transform(x, y)
-        path_arr.append("%.0f" % x)
-        path_arr.append("%.0f" % y)
+        path_arr.append("%.*f" % (self.options.decimal_digits, x))
+        path_arr.append("%.*f" % (self.options.decimal_digits, y))
         if first:
           path_arr.append("L")
           first = False
@@ -375,6 +375,10 @@ def main():
                     action="store",
                     default="_raw",
                     help="name of key to use for the raw map (default %default)")
+  parser.add_option("", "--decimal-digits",
+                    action="store", type="int",
+                    default=0,
+                    help="number of digits after the decimal point (default %default)")
   
   parser.add_option("", "--db-host",
                     action="store",
