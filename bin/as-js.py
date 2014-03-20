@@ -307,12 +307,12 @@ class AsJSON(object):
   
   def print_region_paths_geojson(self):
     print >>self.out, """{ "type": "GeometryCollection", """
-    print >>self.out, """    "crs": {
+    print >>self.out, """    "crs": {{
         "type": "name",
-        "properties": {
-            "name": "urn:ogc:def:crs:EPSG::27700"
-        }
-    },"""
+        "properties": {{
+            "name": "urn:ogc:def:crs:EPSG::{srid}"
+        }}
+    }},""".format(srid=self.m.srid - 900000 if self.m.srid > 900000 else self.m.srid)
     print >>self.out, """    "geometries": ["""
     first_time = True
     for region in self.region_paths():
