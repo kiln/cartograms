@@ -43,7 +43,7 @@ class SimplifiedMultipolygon(object):
     self.region_name = region_name
     self.geoms = geoms
     self.__geo_interface__ = {
-      "type": "MultiPolygon", "name": region_name, "coordinates": [
+      "type": "MultiPolygon", "id": region_name, "coordinates": [
         polygon.__geo_interface__["coordinates"] for polygon in geoms
       ]
     }
