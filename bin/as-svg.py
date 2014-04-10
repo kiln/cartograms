@@ -202,17 +202,17 @@ class AsSVG(object):
           continue
         p = shapely.wkb.loads(str(g))
         if self.options.omit_small_islands:
-          p = self.omit_small_islands(p)
+          p = self.omit_small_islands(p, self.options.small_island_threshold)
         yield region_name, p, has_data
     
     finally:
       c.close()
   
-  def omit_small_islands(self, multipolygon):
+  def omit_small_islands(self, multipolygon, threshold):
     max_area = max([ polygon.area for polygon in multipolygon.geoms ])
     nonsmall_islands = [
       polygon for polygon in multipolygon.geoms
-      if polygon.area > 0.10 * max_area
+      if polygon.area > max_area * threshold / 100
     ]
     if nonsmall_islands:
       multipolygon = shapely.geometry.MultiPolygon(nonsmall_islands)
@@ -313,7 +313,9 @@ class AsSVG(object):
       x_extent = self.x_max-self.x_min
       y_extent = self.y_max-self.y_min
     
-    if self.options.inline_style:
+    if self.options.no_inline_style:
+      internal_stylesheet = ""
+    elif self.options.inline_style:
       internal_stylesheet = self.options.inline_style
     else:
       internal_stylesheet = """path { fill: none; stroke: #a08070; stroke-width: %(stroke_width)s; }
@@ -328,18 +330,25 @@ class AsSVG(object):
     else:
       external_stylesheet = ""
     
+    if internal_stylesheet or external_stylesheet:
+      styles = """<style>
+        %(internal_stylesheet)s
+        %(external_stylesheet)s
+      </style>""" % {
+        "internal_stylesheet": internal_stylesheet,
+        "external_stylesheet": external_stylesheet
+      }
+    else:
+      styles = ""
+    
     print >>self.out, """<?xml version="1.0" encoding="UTF-8"?>
   <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="%(width)d" height="%(height)d" viewBox="%(x_min).5f %(minus_y_max).5f %(x_extent).5f %(y_extent).5f">
-    <style type="text/css">
-      %(internal_stylesheet)s
-      %(external_stylesheet)s
-    </style>
+    %(styles)s
     """ % {
       "x_min": x_min, "minus_y_max": minus_y_max,
       "x_extent": x_extent, "y_extent": y_extent,
       "width": self.m.width, "height": self.m.height,
-      "internal_stylesheet": internal_stylesheet,
-      "external_stylesheet": external_stylesheet,
+      "styles": styles
     }
     
     if not self.options.no_bounds:
@@ -414,7 +423,10 @@ def main():
                     help="override the map's SRID with the specified one")
   parser.add_option("", "--omit-small-islands",
                     action="store_true", default=False,
-                    help="omit any regions that are less than 10% the size of the largest land mass")
+                    help="omit any regions that are less than some proportion of the size of the largest land mass")
+  parser.add_option("", "--small-island-threshold",
+                    action="store", default=10.0, type="float",
+                    help="percentage threshold to define a small island when --omit-small-islands is used (default %default)")
   
   parser.add_option("", "--output-grid",
                     action="store",
@@ -435,6 +447,9 @@ def main():
   parser.add_option("", "--inline-style",
                     action="store",
                     help="literal styles, replacing the defaults")
+  parser.add_option("", "--no-inline-style",
+                    action="store_true",
+                    help="Output no style information at all")
 
   parser.add_option("", "--no-bounds",
                     action="store_true", default=False,
