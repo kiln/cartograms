@@ -71,7 +71,7 @@ create temporary table no_parts as select (q.d).* from (
 
 update region set the_geom = (
   select ST_Collect(geom) from no_parts where ST_Ymin(geom) <= 75
-), area = (select ST_Area(ST_Collect(geom) from no_parts where ST_Ymin(geom) <= 75))
+), area = (select ST_Area(ST_Collect(geom)) from no_parts where ST_Ymin(geom) <= 75)
 where division_id = (select id from division where name = 'subdivided-countries-10m')
 and name = 'NO';
 
@@ -79,7 +79,7 @@ insert into region (division_id, name, the_geom, area) (
   select (select id from division where name = 'subdivided-countries-10m')
        , 'SJ'
        , (select ST_Collect(geom) from no_parts where ST_Ymin(geom) > 75)
-       , (select ST_Area(geom) from no_parts where ST_Ymin(geom) > 75)
+       , (select ST_Area(ST_Collect(geom)) from no_parts where ST_Ymin(geom) > 75)
 );
 
 drop table no_parts;
