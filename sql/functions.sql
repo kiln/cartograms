@@ -21,49 +21,52 @@ begin
       )
       select map_id, division_id
            , x, y
-           , ST_Transform(
+           , CASE
+           -- NB: This is only correct for pseudocylindrical projections!
+           --
+           -- The point is that, if we are making a map of the whole world on a
+           -- projection where the image of the world is not a rectangle, there
+           -- will be some grid points that lie outside the world. These may
+           -- cause errors or other infelicities, so we would like to exclude
+           -- them. The logic below works for pseudocylindrical projections only.
+           -- It will cause an error for regional projections such as OSGB1936
+           -- (srid 27700), so for now we just exclude them explicitly.
+           WHEN srid=27700 or mx
+            between ST_X(ST_Transform(
+                ST_SetSRID(
+                    ST_MakePoint(
+                        -180,
+                        greatest(-90, least(+90,
+                            ST_Y(
+                                ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                            )
+                        ))
+                    ),
+                    4326
+                ), srid
+            ))
+            and ST_X(ST_Transform(
+                ST_SetSRID(
+                    ST_MakePoint(
+                        +180,
+                        greatest(-90, least(+90,
+                            ST_Y(
+                                ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
+                            )
+                        ))
+                    ),
+                    4326
+                ), srid
+            ))
+           THEN ST_Transform(
                ST_SetSRID(
                  ST_MakePoint(mx, my)
                  , srid
                ), 4326
-             ) pt_4326
+             )
+           ELSE NULL
+           END pt_4326
       from pregrid
-      -- NB: This is only correct for pseudocylindrical projections!
-      --
-      -- The point is that, if we are making a map of the whole world on a
-      -- projection where the image of the world is not a rectangle, there
-      -- will be some grid points that lie outside the world. These may
-      -- cause errors or other infelicities, so we would like to exclude
-      -- them. The logic below works for pseudocylindrical projections only.
-      -- It will cause an error for regional projections such as OSGB1936
-      -- (srid 27700), so for now we just exclude them explicitly.
-      where srid=27700 or mx
-        between ST_X(ST_Transform(
-            ST_SetSRID(
-                ST_MakePoint(
-                    -180,
-                    greatest(-90, least(+90,
-                        ST_Y(
-                            ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
-                        )
-                    ))
-                ),
-                4326
-            ), srid
-        ))
-        and ST_X(ST_Transform(
-            ST_SetSRID(
-                ST_MakePoint(
-                    +180,
-                    greatest(-90, least(+90,
-                        ST_Y(
-                            ST_Transform(ST_SetSRID(ST_MakePoint(0, my), srid), 4326)
-                        )
-                    ))
-                ),
-                4326
-            ), srid
-        ))
   );
 end;
 $$ language 'plpgsql';
