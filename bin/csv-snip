@@ -103,26 +103,27 @@ with open(filename, 'r') as f:
     
     if options.output_header:
         w.writerow(options.output_header.split(","))
-        start_row, end_row = options.data_rows.split("..")
-        i = int(start_row) - 1
-        assert i >= 0
-        while True:
-            row_data = [ maybe_munge(j, rows[i][j]) for j in cols ]
-            if end_row == "blank" and "".join(row_data) == "":
+    
+    start_row, end_row = options.data_rows.split("..")
+    i = int(start_row) - 1
+    assert i >= 0
+    while True:
+        row_data = [ maybe_munge(j, rows[i][j]) for j in cols ]
+        if end_row == "blank" and "".join(row_data) == "":
+            break
+        
+        if options.extra_col:
+            row_data.append(options.extra_col)
+        
+        w.writerow(row_data)
+        
+        if end_row not in ("blank", "end"):
+            if i + 1 == int(end_row):
                 break
-            
-            if options.extra_col:
-                row_data.append(options.extra_col)
-            
-            w.writerow(row_data)
-            
-            if end_row not in ("blank", "end"):
-                if i + 1 == int(end_row):
-                    break
-            elif end_row == "end":
-                if i + 1 == len(rows):
-                    break
-            
-            i += 1
+        elif end_row == "end":
+            if i + 1 == len(rows):
+                break
+        
+        i += 1
     
     
