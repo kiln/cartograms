@@ -256,8 +256,8 @@ class AsSVG(object):
         if f:
           x, y = f(x, y)
         x, y = self._transform(x, y)
-        poly_arr.append("%.0f" % x)
-        poly_arr.append("%.0f" % y)
+        poly_arr.append("%.*f" % (self.options.decimal_places, x))
+        poly_arr.append("%.*f" % (self.options.decimal_places, y))
         if first:
           poly_arr.append("L")
           first = False
@@ -434,6 +434,9 @@ def main():
   parser.add_option("", "--box",
                     action="store",
                     help="fit image to box, e.g. 200x200")
+  parser.add_option("", "--decimal-places",
+                    action="store", type="int", default=0,
+                    help="number of decimal places in coordinates")
   parser.add_option("", "--stroke-width",
                     action="store", default=2000,
                     help="width of SVG strokes (default %default)")
