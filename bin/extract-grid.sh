@@ -21,7 +21,7 @@ then
 fi
 
 tmpdir=$(mktemp -d /tmp/XXXXXXXXXXXX)
-for y in $(seq 0 $[$height - 1])
+for y in $(seq 0 $[$height])
 do
 	echo >&2 "Extracting row $y..."
 	cat <<-SQL | psql > /dev/null
