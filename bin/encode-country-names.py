@@ -20,6 +20,7 @@ def process_file(csv_file_name,
     input_delimiter=',', output_delimiter=',',
     has_header=True,
     skip=0,
+    alpha3=False,
 ):
     f = open(csv_file_name, 'rU')
     r = csv.reader(f, delimiter=input_delimiter)
@@ -47,7 +48,7 @@ def process_file(csv_file_name,
     
     for row in r:
         country = row[country_name_column_number]
-        code = countries.alpha_2(country)
+        code = countries.alpha_3(country) if alpha3 else countries.alpha_2(country)
         if code is not None:
             row[1:1] = [code]
             w.writerow(row)
@@ -57,9 +58,11 @@ def process_file(csv_file_name,
 def main():
     from optparse import OptionParser
     parser = OptionParser()
+    parser.add_option("", "--alpha3", action="store_true", default=False,
+                      help="add an alpha-3 rather than an alpha-2 code")
     parser.add_option("", "--country-col", default=0,
                       help="number or name of country name column")
-    parser.add_option("", "--code-col", default="Alpha-2",
+    parser.add_option("", "--code-col", default=None,
                       help="name of the alpha-2 column we add")
     parser.add_option("", "--input-delimiter", default=',',
                       help="Field delimiter for input file (default %default)")
@@ -74,13 +77,18 @@ def main():
     if len(args) != 1:
         parser.error("Wrong number of arguments (%d, expected 1)" % len(args))
     
+    code_col = options.code_col
+    if code_col is None:
+        code_col = "Alpha-3" if options.alpha3 else "Alpha-2"
+    
     process_file(args[0],
         country_name_column=options.country_col,
-        code_column=options.code_col,
+        code_column=code_col,
         input_delimiter=options.input_delimiter,
         output_delimiter=options.output_delimiter,
         has_header=options.has_header,
-        skip=options.skip)
+        skip=options.skip,
+        alpha3=options.alpha3)
 
 if __name__ == "__main__":
     main()
