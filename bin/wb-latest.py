@@ -5,6 +5,7 @@
 # each country.
 
 import csv
+import optparse
 import re
 import sys
 
@@ -20,12 +21,20 @@ def die(fmt, *args, **kwargs):
   print >>sys.stderr, sys.argv[0] + ": " + s
   sys.exit(1)
 
-if len(sys.argv) != 2:
-  die("Expected one argument")
+parser = optparse.OptionParser(usage="%prog [options] filename.csv")
+parser.add_option("-s", "--skip", type="int", default=0,
+                help="number of rows to skip before the header")
 
-with open(sys.argv[1], 'r') as f:
+(options, args) = parser.parse_args()
+if len(args) != 1:
+  parser.error("Expected one argument")
+
+with open(args[0], 'r') as f:
   r = csv.reader(f)
   w = csv.writer(sys.stdout)
+  
+  for i in range(options.skip):
+      r.next()
   
   header = r.next()
   if header[0] == "Data Source":
