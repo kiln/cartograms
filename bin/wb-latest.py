@@ -52,7 +52,7 @@ def read_csv(filename, multiplier_by_country_code=None):
         d["Country Name"],
         d["Country Code"],
         year,
-        d.get(year, None),
+        value,
       ]
 
 parser = optparse.OptionParser(usage="%prog [options] filename.csv")
