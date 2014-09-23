@@ -21,7 +21,7 @@ def die(fmt, *args, **kwargs):
   print >>sys.stderr, sys.argv[0] + ": " + s
   sys.exit(1)
 
-def read_csv(filename, multiplier_by_country_code=None):
+def read_csv(filename, multiplier_by_country_code=None, scale=None):
   with open(filename, 'r') as f:
     r = csv.reader(f)
   
@@ -47,6 +47,8 @@ def read_csv(filename, multiplier_by_country_code=None):
       value = d.get(year, None)
       if multiplier_by_country_code and value:
         value = float(value) * multiplier_by_country_code[d["Country Code"]]
+      if scale and value:
+        value = float(value) * scale
       
       yield [
         d["Country Name"],
@@ -60,6 +62,8 @@ parser.add_option("-s", "--skip", type="int", default=0,
                 help="number of rows to skip before the header")
 parser.add_option("", "--multiply-by",
                 help="data file to multiply by (typically population)")
+parser.add_option("", "--scale", type="float", default=None,
+                help="Constant factor to multiply result by, for unit conversion")
 
 (options, args) = parser.parse_args()
 if len(args) != 1:
@@ -76,5 +80,5 @@ if options.multiply_by:
       multiplier_by_country_code[d["Country Code"]] = float(d["Value"])
 
 w = csv.writer(sys.stdout)
-for row in read_csv(args[0], multiplier_by_country_code):
+for row in read_csv(args[0], multiplier_by_country_code, options.scale):
   w.writerow(row)
