@@ -24,7 +24,7 @@ parser.add_option("", "--value",
                 help="the column name of the value column")
 parser.add_option("", "--exclude",
                 action="store",
-                help="row to exclude (specified as value of key column)")
+                help="rows to exclude (specified as values of key column, comma-separated)")
 parser.add_option("", "--type",
                 action="store", default="unicode",
                 help="the type of the value column (default %default)")
@@ -62,9 +62,14 @@ header = r.next()
 key_index = header.index(options.key)
 value_index = header.index(options.value)
 
+if options.exclude:
+    exclusions = set(options.exclude.split(","))
+else:
+    exclusions = set()
+
 rows = []
 for row in r:
-    if row[key_index] != options.exclude:
+    if row[key_index] not in exclusions:
         try:
             rows.append(( row[key_index].decode("utf-8"), munge_value(row[value_index].decode("utf-8")) ))
         except ValueError, e:
