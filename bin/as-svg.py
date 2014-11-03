@@ -171,11 +171,9 @@ class AsSVG(object):
       }
       
       if hasattr(self, "x_min"):
-        sql += """  and ST_Intersects(region.the_geom,
-            ST_Transform(
-              ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s),
-              4326
-            )
+        sql += """  and ST_Intersects(
+            ST_Transform(region.the_geom, %(srid)s),
+            ST_MakeEnvelope(%(xmin)s, %(ymin)s, %(xmax)s, %(ymax)s, %(srid)s)
           )
         """
         
