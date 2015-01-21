@@ -19,22 +19,24 @@ def col_index(col):
         i += col_index("Z" * (len(col) - 1)) + 1
     return i
 
+def col_range(ncols):
+    def _col_range(col_or_range):
+        if ".." in col_or_range:
+            start, end = col_or_range.split("..", 1)
+            if end == "end":
+                return range(col_index(start), ncols)
+            else:
+                return range(col_index(start), col_index(end) + 1)
+        else:
+            return [col_index(col_or_range)]
+    return _col_range
+
 def parse_cols(cols, ncols):
     """Parse a column specification, and return a list of indices.
-    Column specifications are like 'A,C,K' or 'C..F' or 'H..end'.
-    
-    (This could be extended to handle more general specifications
-    such as say 'A,C,K..H,M..end', but let's only do that if we
-    need it.)
+    Column specifications are like 'A,C,K', 'C..F', 'H..end', 'A,C..Z', etc.
     """
-    if ".." in cols:
-        start, end = cols.split("..", 1)
-        if end == "end":
-            return range(col_index(start), ncols)
-        else:
-            return range(col_index(start), col_index(end) + 1)
+    return sum(map(col_range(ncols), cols.split(",")), [])
     
-    return map(col_index, cols.split(","))
 
 parser = optparse.OptionParser(usage="Usage: %prog [options] file.csv")
 parser.add_option("", "--cols",
