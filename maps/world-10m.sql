@@ -1,13 +1,32 @@
--- High-resolution country outlines from Natural Earth
+-- High-resolution country outlines from Natural Earth, version 3.1.0
 
-insert into division (name) values ('countries-10m');
+insert into division (name) values ('countries-10m-3.1.0');
 insert into region (division_id, name, the_geom, area) (
-    select currval('division_id_seq'), iso_a2, ST_Union(the_geom), ST_Area(ST_Union(the_geom))
-    from ne_10m_admin_0_countries
+    select currval('division_id_seq'), iso_a2, ST_Union(geom), ST_Area(ST_Union(geom))
+    from ne_10m_admin_0_countries_3_1_0
     where iso_a2 <> '-99'
     group by iso_a2
 );
-select compute_breakpoints('countries-10m');
+
+-- There are some surprising omissions in the iso_a2 column in this version
+-- of the Natural Earth data
+insert into region (division_id, name, the_geom, area) (
+    select currval('division_id_seq'), 'NO', ST_Union(geom), ST_Area(ST_Union(geom))
+    from ne_10m_admin_0_countries_3_1_0
+    where name = 'Norway'
+);
+insert into region (division_id, name, the_geom, area) (
+    select currval('division_id_seq'), 'FR', ST_Union(geom), ST_Area(ST_Union(geom))
+    from ne_10m_admin_0_countries_3_1_0
+    where name = 'France'
+);
+insert into region (division_id, name, the_geom, area) (
+    select currval('division_id_seq'), 'XK', ST_Union(geom), ST_Area(ST_Union(geom))
+    from ne_10m_admin_0_countries_3_1_0
+    where name = 'Kosovo'
+);
+
+select compute_breakpoints('countries-10m-3.1.0');
 
 insert into map (
   division_id,
@@ -17,7 +36,7 @@ insert into map (
   width, height
 ) (
   select currval('division_id_seq'),
-  'world-10m-robinson', 954030,
+  'world-10m-3.1.0-robinson', 954030,
   ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(-180, 0), 4326), 954030)),
   ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(180, 0), 4326), 954030)),
   ST_Y(ST_Transform(ST_SetSRID(ST_MakePoint(0, -90), 4326), 954030)),
@@ -25,10 +44,11 @@ insert into map (
   500, 250
 );
 
-select populate_grid('world-10m-robinson');
-select grid_set_regions('world-10m-robinson', 'countries-10m');
+select populate_grid('world-10m-3.1.0-robinson');
+select grid_set_regions('world-10m-3.1.0-robinson', 'countries-10m-3.1.0');
 
 
+/*
 -- Subdivided countries, used for the Guardian Travel Maps
 insert into division (name) values ('subdivided-countries-10m');
 insert into region (division_id, name, the_geom, area) (
@@ -94,7 +114,7 @@ insert into map (
   width, height
 ) (
   select currval('division_id_seq'),
-  'world-10m-robinson-subdivided', 954030,
+  'world-10m-3.1.0-robinson-subdivided', 954030,
   ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(-180, 0), 4326), 954030)),
   ST_X(ST_Transform(ST_SetSRID(ST_MakePoint(180, 0), 4326), 954030)),
   ST_Y(ST_Transform(ST_SetSRID(ST_MakePoint(0, -90), 4326), 954030)),
@@ -102,5 +122,7 @@ insert into map (
   500, 250
 );
 
-select populate_grid('world-10m-robinson-subdivided');
-select grid_set_regions('world-10m-robinson-subdivided', 'subdivided-countries-10m');
+select populate_grid('world-10m-3.1.0-robinson-subdivided');
+select grid_set_regions('world-10m-3.1.0-robinson-subdivided', 'subdivided-countries-10m');
+*/
+
