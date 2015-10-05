@@ -13,6 +13,10 @@ Generate a density grid that can be fed to cart.
 """
 
 parser = optparse.OptionParser()
+parser.add_option("-v", "--verbose",
+                action="store_true",
+                help="print progress information")
+
 parser.add_option("", "--dataset",
                 action="store",
                 help="the name of the dataset to use")
@@ -66,6 +70,10 @@ if options.db_user:
     db_connection_data.append(" user=" + options.db_user)
 db = psycopg2.connect(" ".join(db_connection_data))
 
+def log(fmt, *args):
+    if options.verbose:
+        print >>sys.stderr, fmt % args
+
 c = db.cursor()
 c.execute("""
     select id from dataset where name = %s
@@ -87,6 +95,7 @@ if r is None:
     print >>sys.stderr, "%s: Dataset '%s' does not exist" % (sys.argv[0], dataset_name)
     sys.exit(2)
 map_id, division_id, srid, X, Y = r
+log("map_id=%d, division_id=%d, srid=%d, width=%d, height=%d", map_id, division_id, srid, X, Y)
 c.close()
 
 
@@ -127,7 +136,9 @@ try:
         order by y, x
     """, (dataset_name, map_id, division_id))
     
+    n = 0
     for r in c.fetchall():
+        n += 1
         y, x, v, region_name, region_area = r
         if region_name and region_name == options.ignore_region:
             continue
@@ -144,11 +155,14 @@ try:
               density_sum += v
         except IndexError:
             raise Exception("Grid point (%d,%d) is out of range (%d,%d)" % (x,y,X,Y))
-
+    
+    log("Loaded %d grid points", n)
 finally:
     c.close()
 
-global_density = density_sum / (n_normal + (1-missing)*n_missing + (1-zero)*n_zero)
+denominator = n_normal + (1-missing)*n_missing + (1-zero)*n_zero
+global_density = density_sum / denominator
+log("Global density = %f / %f = %f", density_sum, denominator, global_density)
 
 def d(x, y):
   v = local_densities[y][x]
