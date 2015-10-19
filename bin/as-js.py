@@ -375,7 +375,7 @@ class AsJSON(object):
 
 def main():
   global options
-  parser = optparse.OptionParser()
+  parser = optparse.OptionParser(usage="Usage: %prog [options] cart...")
   parser.add_option("", "--map",
                     action="store",
                     help="the name of the map to use")
