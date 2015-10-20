@@ -445,6 +445,9 @@ def main():
   parser.add_option("", "--load-regions",
                     action="store",
                     help="name of a file from which to load region paths")
+  parser.add_option("", "--dump-or-load-regions",
+                    action="store",
+                    help="acts like --load-regions if the file exists, or like --dump-regions if it doesn't")
   
   parser.add_option("-o", "--output",
                     action="store",
@@ -457,6 +460,17 @@ def main():
   
   if options.dump_regions and options.load_regions:
     parser.error("Cannot specify both --dump-regions and --load-regions")
+
+  if options.dump_or_load_regions:
+    if options.dump_regions:
+      parser.error("Cannot specify both --dump-or-load-regions and --dump-regions")
+    if options.load_regions:
+      parser.error("Cannot specify both --dump-or-load-regions and --load-regions")
+    
+    if os.path.exists(options.dump_or_load_regions):
+      options.load_regions = options.dump_or_load_regions
+    else:
+      options.dump_regions = options.dump_or_load_regions
   
   if options.output_grid:
     mo = re.match(r"^(\d+)x(\d+)$", options.output_grid)
