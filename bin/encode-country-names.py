@@ -22,7 +22,11 @@ def process_file(csv_file_name,
     skip=0,
     alpha3=False,
 ):
-    f = open(csv_file_name, 'rU')
+    if csv_file_name == '-':
+        f = sys.stdin
+    else:
+        f = open(csv_file_name, 'rU')
+
     r = csv.reader(f, delimiter=input_delimiter)
     if not isinstance(write_to, file):
         write_to = open(write_to, 'w')
@@ -74,8 +78,10 @@ def main():
                       help="Number of initial lines to skip")
     
     options, args = parser.parse_args()
-    if len(args) != 1:
-        parser.error("Wrong number of arguments (%d, expected 1)" % len(args))
+    if len(args) > 1:
+        parser.error("Too many arguments (%d, expected 1)" % len(args))
+    elif len(args) == 0:
+        args = [ '-' ]
     
     code_col = options.code_col
     if code_col is None:
