@@ -63,8 +63,6 @@ parser.add_option("", "--munge",
                 help="Value transformation for column, e.g. 'K=s/Total //'. Can appear multiple times")
 
 (options, args) = parser.parse_args()
-if not args:
-    parser.error("No file specified")
 if len(args) > 1:
     parser.error("Unexpected argument: " + args[1])
 
@@ -77,7 +75,10 @@ if options.munge:
     
         munge_by_index[col_index(mo.group(1))] = (mo.group(2), mo.group(3))
 
-filename, = args
+if len(args) == 0:
+    filename = '-'
+else:
+    filename, = args
 
 def maybe_munge(index, val):
     if index in munge_by_index:
@@ -86,7 +87,7 @@ def maybe_munge(index, val):
     else:
         return val
 
-with open(filename, 'r') as f:
+def process(f):
     rows = list(csv.reader(f))
     w = csv.writer(sys.stdout)
     
@@ -127,5 +128,9 @@ with open(filename, 'r') as f:
                 break
         
         i += 1
-    
-    
+
+if filename == '-':
+    process(sys.stdin)
+else:
+    with open(filename, 'r') as f:
+        process(f)
