@@ -151,10 +151,11 @@ class AsJSON(object):
     self.db = psycopg2.connect(" ".join(db_connection_data))
     self.m = utils.Map(self.db, options.map)
     
-    if options.output:
-      self.out = open(options.output, 'w')
-    else:
-      self.out = sys.stdout
+    if options.format != "geojson":
+      if options.output:
+        self.out = open(options.output, 'w')
+      else:
+        self.out = sys.stdout
     
     if self.options.simplification_json:
       self.simplification_dict = json.loads(self.options.simplification_json)
@@ -306,22 +307,46 @@ class AsJSON(object):
     print >>self.out, "}}"
   
   def print_region_paths_geojson(self):
-    print >>self.out, """{ "type": "GeometryCollection", """
-    print >>self.out, """    "crs": {{
-        "type": "name",
-        "properties": {{
-            "name": "urn:ogc:def:crs:EPSG::{srid}"
-        }}
-    }},""".format(srid=self.m.srid - 900000 if self.m.srid > 900000 else self.m.srid)
-    print >>self.out, """    "geometries": ["""
-    first_time = True
+    by_cart = {}
     for region in self.region_paths():
-      if first_time:
-        first_time = False
-      else:
-        print >>self.out, ","
-      json.dump(shapely.geometry.mapping(region), self.out)
-    print >>self.out, """]}"""
+      print >>sys.stderr, "Extracting paths for {region_name}...".format(region_name=region.region_name)
+      for k, coords in self.multipolygon_as_coords(region).items():
+        by_cart.setdefault(k, {})[region.region_name] = coords
+    
+    for k,d in by_cart.iteritems():
+      out_filename = self.options.output % (k,)
+      print >>sys.stderr, "Writing %s..." % (out_filename,)
+      with open(out_filename, 'w') as out:
+        print >>out, """{ "type": "FeatureCollection", """
+        print >>out, """    "crs": {{
+            "type": "name",
+            "properties": {{
+                "name": "urn:ogc:def:crs:EPSG::{srid}"
+            }}
+        }},""".format(srid=self.m.srid - 900000 if self.m.srid > 900000 else self.m.srid)
+        print >>out, '"features": ['
+        
+        first_time = True
+        for region_name, coords in d.iteritems():
+          if first_time:
+            print >>out
+            first_time = False
+          else:
+            print >>out, ","
+          
+          json.dump({
+            "type": "Feature",
+            "id": region_name,
+            "properties": {
+              "name": region_name,
+            },
+            "geometry": {
+              "type": "MultiPolygon",
+              "coordinates": coords
+            }
+          }, out)
+        
+        print >>out, "]}"
   
   def _transform(self, x, y):
     if not self.options.output_grid:
@@ -369,7 +394,53 @@ class AsJSON(object):
       (k, " ".join(path_arr))
       for k, path_arr in path_arrs.items()
     ))
-  
+
+  def multipolygon_as_coords(self, region):
+    coords_arrs = dict((
+      (k, []) for k in self.interpolators.keys()
+    ))
+    for i, g in enumerate(region.geoms):
+      self.polygon_ring_as_coords(g.exterior, coords_arrs, i, 0)
+      for j, interior in enumerate(g.interiors):
+        self.polygon_ring_as_coords(interior, coords_arrs, i, j+1)
+    
+    # Exclude degenerate polygons
+    for k in self.interpolators.keys():
+      coords_arrs[k] = [
+        [ polygon[0] ] + [
+          inner_ring
+          for inner_ring in polygon[1:]
+          if len(inner_ring) > 0
+        ]
+        for polygon in coords_arrs[k]
+        if len(polygon[0]) > 0
+      ]
+    
+    return coords_arrs
+
+  def polygon_ring_as_coords(self, ring, coords_arrs, i, j):
+    for k, coords_arr in coords_arrs.items():
+      interpolator = self.interpolators.get(k)
+
+      if len(coords_arr) == i:
+        coords_arr.append([])
+      elif len(coords_arr) < i+1:
+        raise Exception("Can't access element %d of %r" % (i, coords_arr))
+    
+      if len(coords_arr[i]) == j:
+        coords_arr[i].append([])
+      elif len(coords_arr[i]) < j+1:
+        raise Exception("Can't access element %d of %r" % (j, coords_arr[i]))
+
+      for x, y in interpolator.map(ring.coords) if interpolator else ring.coords:
+        coords_arr[i][j].append([
+          float("%.*f" % (self.options.decimal_digits, x)),
+          float("%.*f" % (self.options.decimal_digits, y)),
+        ])
+      # Degenerate polygons should be suppressed. (Note that the first point is repeated at the end.)
+      if len(coords_arr[i][j]) < 4:
+        coords_arr[i][j] = []
+
   def print_json(self):
     self.print_region_paths()
 
