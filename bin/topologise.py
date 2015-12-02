@@ -19,6 +19,7 @@ parser.add_option("", "--secondary-code-col", type="str",
 parser.add_option("", "--name-col", type="str",
 	help="Name of name column in shp table (default %default)", default="name")
 parser.add_option("", "--tolerance", type="float", help="Tolerance (default %default)", default=0.00000001)
+parser.add_option("", "--tolerance-json", type="str", help="Tolerance that varies by code")
 parser.add_option("", "--batch-size", type="int", help="Batch size (default %default)", default=10)
 parser.add_option("", "--commit-every", type="int", help="Commit every n rows (default %default)", default=100)
 
@@ -48,11 +49,24 @@ with db.cursor() as c:
 
 print ""
 
+def tolerance_case():
+	if not options.tolerance_json: return "%s"
+	import json
+	tolerance_dict = json.loads(options.tolerance_json)
+	if not isinstance(tolerance_dict, dict):
+		parser.error("--tolerance-json must represent an object")
+
+	r = "CASE {shp_table_code_col}"
+	for code, tolerance in tolerance_dict.iteritems():
+		r += " WHEN '%s' THEN %g" % (code.replace("'", "''"), tolerance)
+	r += " ELSE %s END"
+	return r
+
 if options.secondary_code_col:
 	sql = """
 		insert into {topo_table_name} (code, name, {secondary_code_col}, topo, bbox) (
 			select {shp_table_code_col}, {shp_table_name_col}, {secondary_code_col},
-				topology.toTopoGeom(geom, %s, %s, %s),
+				topology.toTopoGeom(geom, %s, %s, """ + tolerance_case() + """),
 				ST_Envelope(geom)
 			from {shp_table_name}
 			where {shp_table_code_col} in ({placeholders})
@@ -62,7 +76,7 @@ else:
 	sql = """
 		insert into {topo_table_name} (code, name, topo, bbox) (
 			select {shp_table_code_col}, {shp_table_name_col},
-				topology.toTopoGeom(geom, %s, %s, %s),
+				topology.toTopoGeom(geom, %s, %s, """ + tolerance_case() + """),
 				ST_Envelope(geom)
 			from {shp_table_name}
 			where {shp_table_code_col} in ({placeholders})
