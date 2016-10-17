@@ -32,8 +32,26 @@ How to get started:
 
  * Run `bin/load-data.py` to load your data into the database.
  
- * Run `bin/density-grid.py` to export a density grid, and then run [`cart`](http://www-personal.umich.edu/~mejn/cart/) to create a cartogram grid from it.
+ * Run `bin/density-grid.py` to export a density grid.
+
+ * Run [`cart`](http://www-personal.umich.edu/~mejn/cart/) to create a cartogram grid from it.
  
  * Run `bin/as-js.py` to generate a JSON file of SVG path data.
  
  * Use this JSON data to make a beautiful web app.
+
+A script for making cartograms from multiple datasets might look something like this:
+
+```CART=/usr/local/cartograms  # Or wherever you have installed it
+for dataset in foo bar baz # Whatever your datasets are called
+do
+    "$CART"/bin/delete-data.py "myproject:$dataset"  # Replace “myproject” with your project name
+    "$CART"/bin/load-data.py "myproject:$dataset" "data/input/$dataset.csv" countries-10m-3.1.0 Alpha-2 Value
+
+    "$CART"/bin/density-grid.py --dataset=myproject:"$dataset" --map=world-10m-3.1.0-robinson > data/cart/density/"$dataset".density
+
+    cart 1500 750 data/cart/density/"$dataset".density data/cart/output/"$dataset".cart
+
+    "$CART"/bin/as-js.py --map=world-10m-3.1.0-robinson data/cart/output/"$dataset".cart -o data/output/"$dataset".js
+done
+```
