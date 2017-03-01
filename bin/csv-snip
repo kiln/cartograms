@@ -111,7 +111,7 @@ def process(f):
     i = int(start_row) - 1
     assert i >= 0
     while True:
-        row_data = [ maybe_munge(j, rows[i][j]) for j in cols ]
+        row_data = [ maybe_munge(j, rows[i][j]) for j in cols if j < len(rows[i]) ]
         if end_row == "blank" and "".join(row_data) == "":
             break
         
