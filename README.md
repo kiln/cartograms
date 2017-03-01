@@ -42,16 +42,15 @@ How to get started:
 
 A script for making cartograms from multiple datasets might look something like this:
 
-```CART=/usr/local/cartograms  # Or wherever you have installed it
-for dataset in foo bar baz # Whatever your datasets are called
-do
-    "$CART"/bin/delete-data.py "myproject:$dataset"  # Replace “myproject” with your project name
-    "$CART"/bin/load-data.py "myproject:$dataset" "data/input/$dataset.csv" countries-10m-3.1.0 Alpha-2 Value
-
-    "$CART"/bin/density-grid.py --dataset=myproject:"$dataset" --map=world-10m-3.1.0-robinson > data/cart/density/"$dataset".density
-
-    cart 1500 750 data/cart/density/"$dataset".density data/cart/output/"$dataset".cart
-
-    "$CART"/bin/as-js.py --map=world-10m-3.1.0-robinson data/cart/output/"$dataset".cart -o data/output/"$dataset".js
-done
-```
+    CART=/usr/local/cartograms  # Or wherever you have installed it
+    for dataset in foo bar baz # Whatever your datasets are called
+    do
+        "$CART"/bin/delete-data.py "myproject:$dataset"  # Replace “myproject” with your project name
+        "$CART"/bin/load-data.py "myproject:$dataset" "data/input/$dataset.csv" countries-10m-3.1.0 Alpha-2 Value
+    
+        "$CART"/bin/density-grid.py --dataset=myproject:"$dataset" --map=world-10m-3.1.0-robinson > data/cart/density/"$dataset".density
+    
+        cart 1500 750 data/cart/density/"$dataset".density data/cart/output/"$dataset".cart
+    
+        "$CART"/bin/as-js.py --map=world-10m-3.1.0-robinson data/cart/output/"$dataset".cart -o data/output/"$dataset".js
+    done
