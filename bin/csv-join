@@ -59,7 +59,7 @@ def main():
         
         unmatched_keys = set(rows.keys())
         for row in csv_r:
-            row = [x.decode("utf-8") for x in row]
+            row = [x.decode(f.get("encoding", "utf8")) for x in row]
             key_v = row[index_by_column_name[key]]
             def v(value):
                 try:
